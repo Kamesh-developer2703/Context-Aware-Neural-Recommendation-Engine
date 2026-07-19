@@ -34,3 +34,4 @@ airflow.db
 mlruns/
 
 *.pkl
+data/raw/
