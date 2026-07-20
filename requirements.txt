@@ -1,0 +1,14 @@
+numpy
+pandas
+matplotlib
+scikit-learn
+tensorflow
+tensorflow-recommenders
+pyspark
+fastapi
+uvicorn
+redis
+apache-airflow
+jupyter
+notebook
+seaborn
