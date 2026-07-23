@@ -2,42 +2,34 @@ import torch
 import torch.nn as nn
 
 
-class Tower(nn.Module):
-
-    def __init__(self, input_size):
-
-        super().__init__()
-
-        self.network = nn.Sequential(
-            nn.Linear(input_size,64),
-            nn.ReLU(),
-
-            nn.Linear(64,32),
-            nn.ReLU(),
-
-            nn.Linear(32,16)
-        )
-
-    def forward(self,x):
-
-        return self.network(x)
-
-
 class TwoTowerModel(nn.Module):
 
     def __init__(self):
 
         super().__init__()
 
-        self.user_tower = Tower(3)
-        self.item_tower = Tower(3)
+        # Customer Tower (5 features)
+        self.customer_tower = nn.Sequential(
+            nn.Linear(5, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32)
+        )
 
-    def forward(self,user,item):
+        # Article Tower (9 features)
+        self.article_tower = nn.Sequential(
+            nn.Linear(9, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32)
+        )
 
-        user_embedding = self.user_tower(user)
+    def forward(self, customer, article):
 
-        item_embedding = self.item_tower(item)
+        customer_embedding = self.customer_tower(customer)
+        article_embedding = self.article_tower(article)
 
-        score = (user_embedding * item_embedding).sum(dim=1)
+        score = torch.sum(
+            customer_embedding * article_embedding,
+            dim=1
+        )
 
         return score

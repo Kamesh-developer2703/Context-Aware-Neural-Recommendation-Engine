@@ -1,22 +1,22 @@
 import torch
 import torch.nn as nn
-
 from torch.utils.data import DataLoader
 
 from dataset import RecommendationDataset
 from model import TwoTowerModel
 
+
 dataset = RecommendationDataset()
 
 loader = DataLoader(
     dataset,
-    batch_size=64,
+    batch_size=256,
     shuffle=True
 )
 
 model = TwoTowerModel()
 
-loss_fn = nn.BCEWithLogitsLoss()
+criterion = nn.BCEWithLogitsLoss()
 
 optimizer = torch.optim.Adam(
     model.parameters(),
@@ -25,17 +25,19 @@ optimizer = torch.optim.Adam(
 
 epochs = 5
 
+print("\nTraining Started...\n")
+
 for epoch in range(epochs):
 
     total_loss = 0
 
-    for user,item,label in loader:
-
-        prediction = model(user,item)
-
-        loss = loss_fn(prediction,label)
+    for customer, article, label in loader:
 
         optimizer.zero_grad()
+
+        output = model(customer, article)
+
+        loss = criterion(output, label)
 
         loss.backward()
 
@@ -43,11 +45,13 @@ for epoch in range(epochs):
 
         total_loss += loss.item()
 
-    print(f"Epoch {epoch+1} Loss : {total_loss:.4f}")
+    print(
+        f"Epoch {epoch+1}/{epochs}  Loss : {total_loss:.4f}"
+    )
 
 torch.save(
     model.state_dict(),
-    "models/two_tower_model.pth"
+    "models/two_tower_model_v2.pth"
 )
 
 print("\nModel Saved Successfully!")

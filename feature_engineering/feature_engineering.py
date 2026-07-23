@@ -68,17 +68,21 @@ article_features["description_length"] = (
 # ============================
 print("Creating Transaction Features...")
 
-transaction_features = (
-    transactions
-    .groupby("customer_id")
-    .agg(
-        total_purchases=("article_id", "count"),
-        total_spent=("price", "sum"),
-        average_price=("price", "mean"),
-        unique_products=("article_id", "nunique")
-    )
-    .reset_index()
-)
+print("Creating Transaction Features...")
+
+transaction_features = transactions[
+    [
+        "customer_id",
+        "article_id",
+        "price",
+        "sales_channel_id"
+    ]
+].sample(
+    n=500000,
+    random_state=42
+).copy()
+
+transaction_features["label"] = 1
 
 # ============================
 # Merge Customer + Transaction Features

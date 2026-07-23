@@ -57,23 +57,24 @@ article["colour_group_name"] = article_encoder.fit_transform(
     article["colour_group_name"].astype(str)
 )
 
-print("Scaling Transaction Features...")
+print("Encoding Transaction Features...")
 
+# Encode sales channel
+sales_encoder = LabelEncoder()
+
+transaction["sales_channel_id"] = sales_encoder.fit_transform(
+    transaction["sales_channel_id"]
+)
+
+# Scale only the price column
 scaler = MinMaxScaler()
 
-transaction[[
-    "total_purchases",
-    "total_spent",
-    "average_price",
-    "unique_products"
-]] = scaler.fit_transform(
-    transaction[[
-        "total_purchases",
-        "total_spent",
-        "average_price",
-        "unique_products"
-    ]]
+transaction[["price"]] = scaler.fit_transform(
+    transaction[["price"]]
 )
+
+# Ensure label is integer
+transaction["label"] = transaction["label"].astype(int)
 
 customer.to_csv(
     f"{OUTPUT_PATH}/customer_encoded.csv",
