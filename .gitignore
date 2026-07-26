@@ -32,3 +32,23 @@ data/processed/
 __pycache__/
 *.pyc
 
+# Generated feature files
+data/features/
+
+# Models
+saved_models/
+*.pth
+
+# Embeddings
+embeddings/
+*.npy
+
+# FAISS
+*.faiss
+
+data/features/
+saved_models/
+embeddings/
+*.npy
+*.pth
+*.faiss
