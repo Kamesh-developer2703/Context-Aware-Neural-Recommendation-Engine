@@ -12,3 +12,8 @@ apache-airflow
 jupyter
 notebook
 seaborn
+torch
+pandas
+numpy
+scikit-learn
+matplotlib
