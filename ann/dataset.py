@@ -1,6 +1,7 @@
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
+import random
 
 
 class RecommendationDataset(Dataset):
@@ -9,56 +10,84 @@ class RecommendationDataset(Dataset):
 
         print("Loading encoded datasets...")
 
-        self.customers = pd.read_csv("outputs/encoded/customer_encoded.csv")
-        self.articles = pd.read_csv("outputs/encoded/article_encoded.csv")
-        self.transactions = pd.read_csv("outputs/encoded/transaction_encoded.csv")
+        customers = pd.read_csv("outputs/encoded/customer_encoded.csv")
+        articles = pd.read_csv("outputs/encoded/article_encoded.csv")
+        transactions = pd.read_csv("outputs/encoded/transaction_encoded.csv")
 
         print("Preparing customer features...")
-
-        '''customer_cols = [
-            "customer_id",
-            "age",
-            "club_member_status",
-            "fashion_news_frequency",
-            "FN",
-            "Active",
-            "total_purchases",
-            "total_spent",
-            "average_price",
-            "unique_products"
-        ]'''
-        customer_cols = [
-    "customer_id",
-    "age",
-    "club_member_status",
-    "fashion_news_frequency",
-    "FN",
-    "Active"
-]
-
-        self.customers = self.customers[customer_cols]
-
-        print("Preparing article features...")
-
-        article_cols = [
-            "article_id",
-            "product_type_no",
-            "graphical_appearance_no",
-            "colour_group_code",
-            "department_no",
-            "index_group_no",
-            "section_no",
-            "garment_group_no",
-            "product_name_length",
-            "description_length"
+        customers = customers[
+            [
+                "customer_id",
+                "age",
+                "club_member_status",
+                "fashion_news_frequency",
+                "FN",
+                "Active"
+            ]
         ]
 
-        self.articles = self.articles[article_cols]
+        print("Preparing article features...")
+        articles = articles[
+            [
+                "article_id",
+                "product_type_no",
+                "graphical_appearance_no",
+                "colour_group_code",
+                "department_no",
+                "index_group_no",
+                "section_no",
+                "garment_group_no",
+                "product_name_length",
+                "description_length"
+            ]
+        ]
+
+        print("Generating negative samples...")
+
+        article_ids = articles["article_id"].tolist()
+
+        positive_pairs = set(
+            zip(
+                transactions["customer_id"],
+                transactions["article_id"]
+            )
+        )
+
+        negative_samples = []
+
+        # One negative sample for each positive interaction
+        for _, row in transactions.iterrows():
+
+            customer = row["customer_id"]
+
+            while True:
+                article = random.choice(article_ids)
+
+                if (customer, article) not in positive_pairs:
+
+                    negative_samples.append({
+                        "customer_id": customer,
+                        "article_id": article,
+                        "label": 0
+                    })
+
+                    break
+
+        negative_df = pd.DataFrame(negative_samples)
+
+        positive_df = transactions[
+            ["customer_id", "article_id", "label"]
+        ]
+
+        data = pd.concat(
+            [positive_df, negative_df],
+            ignore_index=True
+        )
 
         print("Merging customer features...")
 
-        data = self.transactions.merge(
-            self.customers,
+        data = data.merge(
+            customers,
             on="customer_id",
             how="left"
         )
@@ -66,17 +95,17 @@ class RecommendationDataset(Dataset):
         print("Merging article features...")
 
         data = data.merge(
-            self.articles,
+            articles,
             on="article_id",
             how="left"
         )
 
         data.fillna(0, inplace=True)
 
-        self.data = data
+        self.data = data.sample(frac=1, random_state=42).reset_index(drop=True)
 
         print("\nDataset Ready")
-        print("Shape :", self.data.shape)
+        print(self.data["label"].value_counts())
 
     def __len__(self):
         return len(self.data)
@@ -85,25 +114,13 @@ class RecommendationDataset(Dataset):
 
         row = self.data.iloc[idx]
 
-        ''' customer = torch.tensor([
+        customer = torch.tensor([
             row["age"],
             row["club_member_status"],
             row["fashion_news_frequency"],
             row["FN"],
-            row["Active"],
-            row["total_purchases"],
-            row["total_spent"],
-            row["average_price"],
-            row["unique_products"]
-        ], dtype=torch.float32) '''
-
-        customer = torch.tensor([
-    row["age"],
-    row["club_member_status"],
-    row["fashion_news_frequency"],
-    row["FN"],
-    row["Active"]
-], dtype=torch.float32)
+            row["Active"]
+        ], dtype=torch.float32)
 
         article = torch.tensor([
             row["product_type_no"],
