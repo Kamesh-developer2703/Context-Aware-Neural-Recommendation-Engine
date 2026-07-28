@@ -7,13 +7,19 @@ class QueryTower(nn.Module):
         super(QueryTower, self).__init__()
 
         self.network = nn.Sequential(
-            nn.Linear(input_dim, 32),
-            nn.ReLU(),
 
-            nn.Linear(32, 64),
+            nn.Linear(input_dim, 64),
+            nn.BatchNorm1d(64),
             nn.ReLU(),
+            nn.Dropout(0.3),
 
-            nn.Linear(64, embedding_dim)
+            nn.Linear(64, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+
+            nn.Linear(128, embedding_dim)
+
         )
 
     def forward(self, x):
