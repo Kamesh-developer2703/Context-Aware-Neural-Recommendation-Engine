@@ -168,3 +168,16 @@ A scalable recommendation engine capable of generating personalized product reco
 ## License
 
 This project is developed for educational and internship purposes under Zaalima Development Pvt. Ltd.
+## Inference
+
+Run the trained recommendation model:
+
+python -m models.inference
+
+Outputs are saved to:
+
+outputs/recommendations.csv
+
+Model checkpoints are stored in:
+
+saved_models/
