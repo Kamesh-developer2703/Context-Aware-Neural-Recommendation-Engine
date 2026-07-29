@@ -15,12 +15,13 @@ model = TwoTowerModel(
     user_dim=user.shape[0],
     item_dim=item.shape[0]
 ).to(device)
+model_path = "saved_models/two_tower_model.pth"
+
+if not os.path.exists(model_path):
+    raise FileNotFoundError(f"{model_path} not found")
 
 model.load_state_dict(
-    torch.load(
-        "saved_models/two_tower_model.pth",
-        map_location=device
-    )
+    torch.load(model_path, map_location=device)
 )
 
 model.eval()
@@ -31,7 +32,14 @@ print("Running inference...")
 
 with torch.no_grad():
 
-    for i in range(min(1000, len(dataset))):
+    test_indices = [0, 100, 500, 1000, 2000]
+
+    for i in test_indices:
+
+        if i >= len(dataset):
+            continue
+
+        user, item, label = dataset[i]
 
         user, item, label = dataset[i]
 
