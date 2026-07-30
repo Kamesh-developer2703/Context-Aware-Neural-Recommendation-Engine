@@ -11,7 +11,8 @@ def clean_articles():
         return
 
     print("⏳ Loading articles metadata for cleaning...")
-    df = pd.read_csv(INPUT_PATH)
+    # Update your pd.read_csv line to this:
+    df = pd.read_csv(INPUT_PATH, dtype={'article_id': str})
     
     print(f"📊 Original Shape: {df.shape}")
 
