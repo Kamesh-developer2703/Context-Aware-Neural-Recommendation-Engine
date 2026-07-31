@@ -14,3 +14,11 @@ def home():
     return {
         "message": "Recommendation Engine API Running Successfully"
     }
+
+@app.get("/health")
+def health():
+    return {
+        "status": "Healthy",
+        "api": "Recommendation Engine",
+        "version": "1.0"
+    }

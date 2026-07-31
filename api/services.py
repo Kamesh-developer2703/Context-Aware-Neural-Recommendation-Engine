@@ -1,9 +1,15 @@
 import pandas as pd
+import os
 
-RECOMMENDATION_FILE = "outputs/recommendations.csv"
+FILE = "outputs/recommendations.csv"
 
 def get_recommendations():
 
-    df = pd.read_csv(RECOMMENDATION_FILE)
+    if not os.path.exists(FILE):
+        return []
+
+    df = pd.read_csv(FILE)
+
+    df = df.sort_values("score", ascending=False)
 
     return df.to_dict(orient="records")
