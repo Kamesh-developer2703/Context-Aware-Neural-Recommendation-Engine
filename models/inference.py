@@ -27,19 +27,16 @@ model.load_state_dict(
 model.eval()
 
 results = []
-
+TOP_K = 10
 print("Running inference...")
-
+# Disable gradient computation for faster inference
 with torch.no_grad():
 
-    test_indices = [0, 100, 500, 1000, 2000]
+    MAX_SAMPLES = min(1000, len(dataset))
 
-    for i in test_indices:
+    for i in range(MAX_SAMPLES):
 
-        if i >= len(dataset):
-            continue
-
-        user, item, label = dataset[i]
+        
 
         user, item, label = dataset[i]
 
@@ -49,17 +46,28 @@ with torch.no_grad():
                 item.unsqueeze(0).to(device)
             )
         ).item()
-
+# Store prediction results for evaluation
         results.append({
             "sample_id": i,
-            "score": score
-        })
+            "actual_label": int(label),
+            "score": round(score, 4)
+    })
+# Sort recommendations by score (highest first)
+results.sort(key=lambda x: x["score"], reverse=True)
 
+# Keep only Top-K recommendations
+top_results = results[:TOP_K]
 os.makedirs("outputs", exist_ok=True)
 
 pd.DataFrame(results).to_csv(
     "outputs/recommendations.csv",
     index=False
 )
+# Save Top-K recommendations separately
+pd.DataFrame(top_results).to_csv(
+    "outputs/top_k_recommendations.csv",
+    index=False
+)
 
+print(f"Top-{TOP_K} recommendations saved to outputs/top_k_recommendations.csv")
 print("Recommendations saved to outputs/recommendations.csv")
