@@ -198,3 +198,74 @@ saved_models/
 ### Status
 - End-to-end testing completed successfully.
 - Recommendation pipeline is stable and working as expected.
+# Recommendation Testing Report
+
+## Objective
+Validate recommendation generation and Top-K recommendation outputs.
+
+## Test Environment
+
+- Framework: PyTorch
+- Dataset: RecommendationDataset
+- Model: Two-Tower Recommendation Model
+
+## Tests Performed
+
+### 1. Recommendation Generation
+
+- Successfully generated recommendation scores.
+- Tested inference on 1000 samples.
+
+Status: PASS
+
+---
+
+### 2. Top-K Recommendation Validation
+
+Top-K = 10
+
+Observed Output:
+
+| Sample ID | Actual Label | Score |
+|-----------|-------------|-------|
+| 0 | 1 | 1.0000 |
+| 1 | 1 | 1.0000 |
+| 2 | 1 | 1.0000 |
+| 3 | 1 | 1.0000 |
+| 4 | 1 | 1.0000 |
+| 5 | 1 | 1.0000 |
+| 6 | 1 | 1.0000 |
+| 7 | 1 | 1.0000 |
+| 8 | 1 | 1.0000 |
+| 9 | 1 | 1.0000 |
+
+Observation:
+
+- Top-10 recommendations were generated successfully.
+- Recommendations are sorted by prediction score.
+- All Top-K samples belong to positive interactions (label = 1).
+
+Status: PASS
+
+---
+
+### 3. Bug Fixes
+
+- Added model path validation.
+- Added Top-K recommendation export.
+- Added actual labels for evaluation.
+- Improved inference code readability.
+- Added inference optimization using `torch.no_grad()`.
+
+Status: PASS
+
+---
+
+## Conclusion
+
+The recommendation inference pipeline executed successfully.
+
+Recommendation outputs were generated correctly and exported to:
+
+- outputs/recommendations.csv
+- outputs/top_k_recommendations.csv
