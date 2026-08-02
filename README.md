@@ -269,3 +269,10 @@ Recommendation outputs were generated correctly and exported to:
 
 - outputs/recommendations.csv
 - outputs/top_k_recommendations.csv
+Bug Report
+
+1. Removed duplicate dataset access in inference loop.
+2. Added Top-K recommendation output generation.
+3. Improved inference readability with comments.
+4. Sorted recommendation scores before saving output.
+5. Verified API responses for sample requests.
