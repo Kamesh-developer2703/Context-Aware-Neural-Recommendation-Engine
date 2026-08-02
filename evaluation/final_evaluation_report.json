@@ -1,0 +1,37 @@
+{
+    "title": "Context-Aware Two-Tower Neural Recommendation Engine Evaluation Report",
+    "author": "Mokshitha",
+    "metrics_summary": {
+        "Precision@10": 0.0978,
+        "Recall@10": 0.1956,
+        "Hit_Rate@10": 0.74
+    },
+    "plots_generated": [
+        "evaluation/plots/loss_vs_epochs.png",
+        "evaluation/plots/recommendation_count_distribution.png"
+    ],
+    "qualitative_comparison": [
+        {
+            "user_id": "U_88120",
+            "historical_preference": "Ladieswear / Dresses / Dark Blue",
+            "expected_recommendations": "Dark Blue Floral Dress, Navy Casual Midi Dress",
+            "actual_model_output": "Navy Blue Sleeve Dress, Dark Blue Bodycon Midi",
+            "match_status": "Exact Semantic Match \u2705"
+        },
+        {
+            "user_id": "U_34901",
+            "historical_preference": "Menswear / Outerwear / Black",
+            "expected_recommendations": "Black Leather Jacket, Black Bomber Jacket",
+            "actual_model_output": "Black Zip Jacket, Dark Grey Heavy Parka",
+            "match_status": "High Relevance Match \u2705"
+        },
+        {
+            "user_id": "U_10429",
+            "historical_preference": "Sportswear / Tights / Light Pink",
+            "expected_recommendations": "Pink Running Tights, Pink Gym Leggings",
+            "actual_model_output": "Light Pink Seamless Tights, Mauve Sport Top",
+            "match_status": "Category & Style Match \u2705"
+        }
+    ],
+    "status": "Evaluation & Visualizations Successfully Finalized"
+}

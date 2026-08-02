@@ -1,0 +1,38 @@
+{
+    "evaluation_summary": "Two-Tower Candidate Retrieval Evaluation Benchmark",
+    "baseline_performance": {
+        "K=5": {
+            "Precision@5": 0.007600000000000002,
+            "Recall@5": 0.007600000000000002,
+            "Hit_Rate@5": 0.038
+        },
+        "K=10": {
+            "Precision@10": 0.006,
+            "Recall@10": 0.012,
+            "Hit_Rate@10": 0.058
+        },
+        "K=20": {
+            "Precision@20": 0.0056,
+            "Recall@20": 0.0224,
+            "Hit_Rate@20": 0.106
+        }
+    },
+    "two_tower_model_performance": {
+        "K=5": {
+            "Precision@5": 0.102,
+            "Recall@5": 0.102,
+            "Hit_Rate@5": 0.45
+        },
+        "K=10": {
+            "Precision@10": 0.0978,
+            "Recall@10": 0.1956,
+            "Hit_Rate@10": 0.74
+        },
+        "K=20": {
+            "Precision@20": 0.1029,
+            "Recall@20": 0.4116,
+            "Hit_Rate@20": 1.0
+        }
+    },
+    "comparison_observations": []
+}

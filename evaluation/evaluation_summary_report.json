@@ -1,0 +1,16 @@
+{
+    "evaluation_target": "Candidate Retrieval @ K=10",
+    "sample_size": 500,
+    "metrics": {
+        "baseline": {
+            "Precision@10": 0.005,
+            "Recall@10": 0.01,
+            "Hit_Rate@10": 0.05
+        },
+        "two_tower_model": {
+            "Precision@10": 0.2028,
+            "Recall@10": 0.4056,
+            "Hit_Rate@10": 1.0
+        }
+    }
+}
