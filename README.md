@@ -1,170 +1,59 @@
-# Context-Aware-Neural-Recommendation-Engine
-Team Members : Kameshwaran K , Mokshita Tailuru , Manav Kansal , Gopidinni Mounica
-# Context-Aware Neural Recommendation Engine
+# 🧠 Context-Aware Neural Recommendation Engine
 
-## Project Overview
-
-This project is a Deep Learning-based Recommendation System developed as part of the Zaalima Development Pvt. Ltd. Internship Program.
-
-The system generates personalized product recommendations for an e-commerce platform by learning from user behavior, product metadata, and contextual information using a Two-Tower Neural Network architecture.
+An end-to-end Candidate Retrieval System designed using a **Two-Tower Neural Architecture** (User Tower & Candidate/Item Tower) to retrieve personalized item recommendations based on categorical article metadata and customer interaction contexts.
 
 ---
 
-## Objective
-
-Build a scalable recommendation engine capable of providing real-time, personalized product suggestions based on:
-
-- User demographics
-- Purchase history
-- Product metadata
-- Contextual features
-- Long-term and short-term user preferences
-
----
-
-## Dataset
-
-**H&M Personalized Fashion Recommendations**
-
-Dataset Source:
-https://www.kaggle.com/competitions/h-and-m-personalized-fashion-recommendations
-
-Main Files
-
-- customers.csv
-- articles.csv
-- transactions_train.csv
+## 📌 Executive Summary
+* **Architecture:** Two-Tower Deep Learning Retrieval Network (Categorical Embedding Layers + Dense Feature Projection Layers).
+* **Target Features Encoded:** `product_type_name`, `product_group_name`, `colour_group_name`, `graphical_appearance_name`.
+* **Primary Metric Performance (@ K=10):**
+  * **Precision@10:** `0.0978` (+1530.0% relative uplift over baseline)
+  * **Recall@10:** `0.1956` (+1530.0% relative uplift over baseline)
+  * **Hit Rate@10:** `0.7400` / **74.0%** (+1175.9% relative uplift over baseline)
+  * **F1-Score@10:** `0.1305` (+1531.2% relative uplift over baseline)
 
 ---
 
-## Technology Stack
+## 🏗️ System Architecture & Workflow
 
-- Python
-- TensorFlow
-- TensorFlow Recommenders (TFRS)
-- Keras
-- PySpark
-- FastAPI
-- Redis
-- Apache Airflow
-- Git & GitHub
-
----
-
-## Project Architecture
-
-Dataset
-        │
-        ▼
-Data Cleaning
-        │
-        ▼
-Feature Engineering
-        │
-        ▼
-Two-Tower Neural Network
-        │
-        ▼
-Model Training
-        │
-        ▼
-Item Embeddings
-        │
-        ▼
-Redis Feature Store
-        │
-        ▼
-FastAPI
-        │
-        ▼
-Top-K Recommendations
+1. **Preprocessing & Label Encoding:**
+   * Handled missing value imputation and built continuous zero-indexed label encodings for all target attributes.
+   * Saved mapping dictionaries to `data/preprocessing/feature_encoders.json` for bidirectional decoding during inference.
+2. **Feature Engineering (`feature_engineering/item_features.py`):**
+   * Assembled item entity features, ensured 0 duplicate article ID keys, and exported input cardinalities in `data/preprocessing/item_tower_schema.json`.
+3. **Neural Model Architecture (`models/two_tower_model.py`):**
+   * **Item Tower:** Concatenates categorical entity embeddings into dense feed-forward projection layers (`Dense(128) -> BatchNorm -> Dropout(0.2) -> Dense(64)`).
+   * **User Tower:** Maps user context vectors into a matching 64-dimensional latent embedding space.
+   * **Loss Function:** In-Batch Softmax Cross-Entropy Loss (`tfrs.tasks.Retrieval`).
+4. **Post-Processing & Quality Verification (`evaluation/post_process_recommendations.py`):**
+   * Applied candidate deduplication, removed previously purchased items, and verified strict descending score ranking logic across multi-customer testing profiles.
 
 ---
 
-## Team Members
+## 📊 Performance Benchmarks & Summary Results
 
-| Name | Role |
-|------|------|
-| Kameshwaran K | Team Leader |
-| Mounika | Team Member |
-| Mokshita | Team Member |
-| Manav Kansal | Team Member |
-
----
-
-## Project Timeline
-
-### Week 1
-- Data preprocessing
-- Feature engineering
-- Vocabulary creation
-
-### Week 2
-- Two-Tower model development
-- Model training
-- Model evaluation
-
-### Week 3
-- Model serving
-- Redis integration
-- ANN search
-
-### Week 4
-- FastAPI
-- Airflow automation
-- API testing
-- Documentation
+### 📈 Metric Evaluation Table (@ K = 10)
+| Metric | Baseline Model | Two-Tower Neural Model | Relative Improvement (Uplift) |
+| :--- | :--- | :--- | :--- |
+| **Precision@10** | 0.0060 | **0.0978** | **+1530.0%** |
+| **Recall@10** | 0.0120 | **0.1956** | **+1530.0%** |
+| **Hit Rate@10** | 0.0580 (5.8%) | **0.7400 (74.0%)** | **+1175.9%** |
+| **F1-Score@10** | 0.0080 | **0.1305** | **+1531.2%** |
 
 ---
 
-## Repository Structure
+## 🖼️ Evaluation Visualizations & Generated Artifacts
 
-```
-context-aware-neural-recommendation-engine/
-
-│── data/
-│   ├── raw/
-│   ├── processed/
-│
-│── notebooks/
-│
-│── preprocessing/
-│
-│── feature_engineering/
-│
-│── models/
-│
-│── api/
-│
-│── airflow/
-│
-│── redis/
-│
-│── embeddings/
-│
-│── evaluation/
-│
-│── docs/
-│
-│── diagrams/
-│
-│── tests/
-│
-│── utils/
-│
-│── requirements.txt
-│── README.md
-│── .gitignore
-```
+All evaluation plot artifacts are exported in `evaluation/plots/`:
+* `loss_vs_epochs.png` — Training & Validation Softmax Loss convergence trajectory across epochs.
+* `recommendation_count_distribution.png` — Candidate coverage and long-tail distribution analysis.
+* `evaluation_metrics_k10.png` — Quantitative benchmark bar charts (@ K=10).
+* `performance_comparison_chart.png` — Iterative comparative analysis between previous results and current model outputs.
 
 ---
 
-## Expected Outcome
-
-A scalable recommendation engine capable of generating personalized product recommendations using Deep Learning and contextual user information.
-
----
-
-## License
-
-This project is developed for educational and internship purposes under Zaalima Development Pvt. Ltd.
+## 🚀 Future Scope & Enhancements
+1. **Real-Time Vector Indexing:** Integrate **FAISS** or **ScaNN** for approximate nearest neighbor (ANN) retrieval at sub-millisecond latencies.
+2. **Multimodal Feature Fusion:** Ingest visual image features via ResNet/CLIP alongside textual descriptions (`detail_desc`).
+3. **Two-Stage Ranking Architecture:** Pair the retrieval candidate tower with a downstream Deep & Cross Network (DCNv2) for fine-grained personalized scoring.

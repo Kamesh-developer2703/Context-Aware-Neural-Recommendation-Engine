@@ -1,0 +1,32 @@
+{
+    "title": "Updated Model Evaluation & Comparative Performance Report",
+    "author": "Mokshitha",
+    "evaluation_metric_target": "K = 10",
+    "comparative_analysis": {
+        "previous_results": {
+            "Precision@10": 0.006,
+            "Recall@10": 0.012,
+            "Hit Rate@10": 0.058
+        },
+        "current_model": {
+            "Precision@10": 0.0978,
+            "Recall@10": 0.1956,
+            "Hit Rate@10": 0.74
+        },
+        "percentage_improvements": {
+            "Precision@10": 1530.0,
+            "Recall@10": 1530.0,
+            "Hit Rate@10": 1175.862068965517
+        }
+    },
+    "key_observations": [
+        "Precision@10 increased from 0.0060 to 0.0978 (+1530.0% uplift), indicating significantly higher relevance in top candidate items.",
+        "Recall@10 improved from 0.0120 to 0.1956 (+1530.0% uplift), capturing roughly 20% of all relevant user interactions within the top 10 items.",
+        "Hit Rate@10 achieved a massive jump from 5.8% to 74.0% (+1175.9% uplift), demonstrating that nearly 3 out of 4 recommendation lists return at least one true positive item.",
+        "Categorical feature encodings and post-processing deduplication significantly eliminated noise compared to previous baseline iterations."
+    ],
+    "generated_artifacts": [
+        "evaluation\\plots\\performance_comparison_chart.png",
+        "evaluation\\updated_evaluation_report.json"
+    ]
+}

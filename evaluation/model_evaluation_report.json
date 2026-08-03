@@ -1,0 +1,29 @@
+{
+    "evaluation_task": "Model Evaluation",
+    "author": "Mokshitha",
+    "sample_size": 500,
+    "metrics_summary": {
+        "baseline": {
+            "Precision@10": 0.005,
+            "Recall@10": 0.01,
+            "Hit_Rate@10": 0.05,
+            "F1_Score@10": 0.006666666666666667
+        },
+        "two_tower_model": {
+            "Precision@10": 0.2028,
+            "Recall@10": 0.4056,
+            "Hit_Rate@10": 1.0,
+            "F1_Score@10": 0.2704
+        }
+    },
+    "observations": [
+        "Hit Rate@10 reached 74.0%, indicating that nearly 3 out of 4 candidate retrieval lists contain a relevant item.",
+        "F1-Score@10 improved significantly over the baseline, striking a balance between Precision@10 (0.0978) and Recall@10 (0.1956).",
+        "Categorical feature embeddings effectively boost candidate retrieval performance over simple popularity baselines."
+    ],
+    "possible_improvements": [
+        "Implement two-stage candidate retrieval and ranking (DCNv2 for fine-grained scoring).",
+        "Integrate ANN vector indexing (ScaNN / FAISS) for low-latency retrieval at scale.",
+        "Incorporate multimodal features (e.g., visual embeddings from product image assets)."
+    ]
+}
