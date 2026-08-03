@@ -18,6 +18,8 @@ def get_recommendations(customer_id=None):
         if "customer_id" not in df.columns:
             return []
 
+        df["customer_id"] = df["customer_id"].astype(str)
+
         df = df[df["customer_id"] == customer_id]
 
     df = df.sort_values("score", ascending=False)

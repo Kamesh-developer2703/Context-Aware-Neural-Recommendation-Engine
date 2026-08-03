@@ -57,6 +57,26 @@ article["colour_group_name"] = article_encoder.fit_transform(
     article["colour_group_name"].astype(str)
 )
 
+article["perceived_colour_value_name"] = article_encoder.fit_transform(
+    article["perceived_colour_value_name"].astype(str)
+)
+
+article["perceived_colour_master_name"] = article_encoder.fit_transform(
+    article["perceived_colour_master_name"].astype(str)
+)
+
+article["department_name"] = article_encoder.fit_transform(
+    article["department_name"].astype(str)
+)
+
+article["index_group_name"] = article_encoder.fit_transform(
+    article["index_group_name"].astype(str)
+)
+
+article["section_name"] = article_encoder.fit_transform(
+    article["section_name"].astype(str)
+)
+
 print("Encoding Transaction Features...")
 
 # Encode sales channel

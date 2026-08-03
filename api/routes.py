@@ -26,7 +26,7 @@ def recommendations(limit: int = Query(10, ge=1, le=100)):
 
 
 @router.get("/recommendations/{customer_id}")
-def recommendation(customer_id:int):
+def recommendation(customer_id: str):
 
     data = get_recommendations(customer_id)
 
