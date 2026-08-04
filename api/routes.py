@@ -41,3 +41,18 @@ def recommendation(customer_id: str):
         "customer_id":customer_id,
         "recommendations":data
     }
+
+@router.get("/statistics")
+def statistics():
+
+    import pandas as pd
+
+    df = pd.read_csv("outputs/recommendations.csv")
+
+    return {
+        "total_recommendations": len(df),
+        "unique_customers": int(df["customer_id"].nunique()),
+        "unique_articles": int(df["article_id"].nunique()),
+        "average_score": float(df["score"].mean()),
+        "highest_score": float(df["score"].max())
+    }
