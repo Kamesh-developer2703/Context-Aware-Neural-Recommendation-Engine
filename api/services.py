@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+from api.cache import load_recommendations
 
 FILE = "outputs/recommendations.csv"
 
@@ -8,7 +9,9 @@ def get_recommendations(customer_id=None):
     if not os.path.exists(FILE):
         raise FileNotFoundError("Recommendation file not found.")
 
-    df = pd.read_csv(FILE)
+    # df = pd.read_csv(FILE)
+
+    df = load_recommendations()
 
     if df.empty:
         return []

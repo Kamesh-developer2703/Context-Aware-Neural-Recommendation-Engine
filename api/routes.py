@@ -4,6 +4,8 @@ from api.services import get_recommendations
 
 from utils.logger import log_request
 
+from api.cache import refresh_cache
+
 router = APIRouter()
 
 @router.get("/recommendations")
@@ -87,3 +89,13 @@ def view_logs():
         return {
             "message": "No logs available."
         }
+
+@router.post("/refresh-cache")
+def reload_cache():
+
+    refresh_cache()
+
+    return {
+        "status": "success",
+        "message": "Recommendation cache refreshed."
+    }
