@@ -181,3 +181,70 @@ The recommendation APIs are functioning correctly for valid requests, validation
 
 One functional limitation was identified regarding customer-specific filtering because the generated recommendation dataset currently lacks a `customer_id` field. This limitation has been documented for future enhancement.
 Bug founded in recommendation.csv beacuse of invalid customer does notresponding properly.
+# API Testing Report
+
+## Endpoint
+GET /recommendations/{customer_id}
+
+### Test 1: Valid Customer ID
+Input:
+customer_id = 1
+
+Expected:
+200 OK
+
+Result:
+PASS
+
+---
+
+### Test 2: Invalid Customer ID
+Input:
+customer_id = 999999
+
+Expected:
+404 Not Found
+
+Result:
+PASS
+
+---
+
+### Test 3: Invalid Datatype
+Input:
+customer_id = abc
+
+Expected:
+422 Unprocessable Entity
+
+Result:
+PASS
+
+---
+
+### Test 4: Recommendation Ranking
+
+Verified recommendation scores are sorted in descending order.
+
+Result:
+PASS
+
+---
+
+### Bugs Fixed
+
+- Added validation for invalid customer IDs.
+- Returns HTTP 404 instead of empty recommendation list.
+- Verified API response codes.
+- Verified recommendation ranking.
+
+API Response Time Test
+
+Endpoint:
+GET /recommendations/1
+
+Average Response Time:
+≈ 303 ms (0.30 sec)
+
+Status:
+PASS

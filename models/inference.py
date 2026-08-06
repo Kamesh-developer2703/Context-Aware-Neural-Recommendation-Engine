@@ -55,16 +55,31 @@ with torch.no_grad():
 # Sort recommendations by score (highest first)
 results.sort(key=lambda x: x["score"], reverse=True)
 
-# Keep only Top-K recommendations
-top_results = results[:TOP_K]
+# -----------------------------
+# Assign demo customer IDs
+# -----------------------------
+for idx, row in enumerate(results):
+    row["customer_id"] = (idx // 100) + 1
+
+# Convert to DataFrame
+results_df = pd.DataFrame(results)
+
+# Move customer_id to first column
+results_df = results_df[
+    ["customer_id", "sample_id", "actual_label", "score"]
+]
+
+# Top-K recommendations
+top_results_df = results_df.head(TOP_K)
+
 os.makedirs("outputs", exist_ok=True)
 
-pd.DataFrame(results).to_csv(
+results_df.to_csv(
     "outputs/recommendations.csv",
     index=False
 )
-# Save Top-K recommendations separately
-pd.DataFrame(top_results).to_csv(
+
+top_results_df.to_csv(
     "outputs/top_k_recommendations.csv",
     index=False
 )
