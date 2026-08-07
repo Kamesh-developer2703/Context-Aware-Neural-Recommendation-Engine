@@ -1,10 +1,16 @@
+import math
 from typing import Optional, List
 from fastapi import APIRouter, Query, HTTPException, status
-from api.schemas import RecommendationResponse, RecommendationItem
+from api.schemas import (
+    RecommendationResponse, 
+    RecommendationItem, 
+    PaginatedHistoryResponse, 
+    HistoryRecord
+)
 
 router = APIRouter()
 
-# Mock Candidate Universe (Simulates neural candidate retrieval output)
+# --- MOCK DATA STORES ---
 CANDIDATE_UNIVERSE = [
     {"article_id": "0108775015", "score": 0.985, "product_type": "Dress", "product_group_name": "Garments"},
     {"article_id": "0108775016", "score": 0.942, "product_type": "Trousers", "product_group_name": "Garments"},
@@ -16,23 +22,73 @@ CANDIDATE_UNIVERSE = [
     {"article_id": "0108775022", "score": 0.550, "product_type": "Cap", "product_group_name": "Accessories"},
 ]
 
+RECOMMENDATION_HISTORY_STORE = [
+    {
+        "recommendation_id": "REC_1001",
+        "customer_id": "CUST_10",
+        "timestamp": "2026-08-07 14:20:00",
+        "items_recommended": [
+            {"article_id": "0108775015", "score": 0.985, "product_type": "Dress", "product_group_name": "Garments"},
+            {"article_id": "0108775016", "score": 0.942, "product_type": "Trousers", "product_group_name": "Garments"}
+        ]
+    },
+    {
+        "recommendation_id": "REC_1002",
+        "customer_id": "CUST_10",
+        "timestamp": "2026-08-06 11:15:00",
+        "items_recommended": [
+            {"article_id": "0108775017", "score": 0.891, "product_type": "Jacket", "product_group_name": "Garments"}
+        ]
+    },
+    {
+        "recommendation_id": "REC_1003",
+        "customer_id": "CUST_20",
+        "timestamp": "2026-08-05 09:30:00",
+        "items_recommended": [
+            {"article_id": "0108775020", "score": 0.765, "product_type": "Sports Shoes", "product_group_name": "Footwear"}
+        ]
+    }
+]
+
+
+# --- 1. GENERAL & CUSTOMER RECOMMENDATIONS ENDPOINTS ---
+@router.get(
+    "/recommendations/{customer_id}",
+    response_model=RecommendationResponse,
+    summary="Get Customer Specific Recommendations"
+)
+def get_customer_recommendations(customer_id: str, limit: int = Query(10, ge=1, le=100)):
+    try:
+        recs = CANDIDATE_UNIVERSE[:limit]
+        return RecommendationResponse(
+            status="success",
+            customer_id=customer_id,
+            total_found=len(recs),
+            returned_count=len(recs),
+            recommendations=[RecommendationItem(**item) for item in recs]
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generating recommendations: {str(e)}"
+        )
+
+
+# --- 2. SEARCH & FILTER RECOMMENDATIONS ENDPOINT ---
 @router.get(
     "/recommendations/search",
     response_model=RecommendationResponse,
-    summary="Search and Filter Recommendations",
-    description="Search recommendations by keyword/product type, filter by minimum similarity score, customer ID, and set Top-K limits."
+    summary="Search and Filter Recommendations"
 )
 def search_and_filter_recommendations(
-    customer_id: Optional[str] = Query(None, description="Customer ID for contextual personalization"),
-    query: Optional[str] = Query(None, description="Search term for article ID or product type (e.g., 'Dress', 'Shoes')"),
-    min_score: float = Query(0.0, ge=0.0, le=1.0, description="Filter out items below this similarity score"),
-    top_k: int = Query(10, ge=1, le=100, description="Top-K limit on number of returned items")
+    customer_id: Optional[str] = Query(None, description="Customer ID"),
+    query: Optional[str] = Query(None, description="Search term"),
+    min_score: float = Query(0.0, ge=0.0, le=1.0, description="Minimum score threshold"),
+    top_k: int = Query(10, ge=1, le=100, description="Limit results")
 ):
     try:
-        # Step 1: Base Candidate Collection
         results = CANDIDATE_UNIVERSE.copy()
 
-        # Step 2: Apply Search Query Filter (Article ID or Product Type match)
         if query:
             q_clean = query.strip().lower()
             results = [
@@ -40,45 +96,79 @@ def search_and_filter_recommendations(
                 if q_clean in item["product_type"].lower() or q_clean in item["article_id"].lower()
             ]
 
-        # Step 3: Apply Minimum Score Threshold Filter
         results = [item for item in results if item["score"] >= min_score]
-
-        # Step 4: Ensure Strict Descending Rank Logic
         results.sort(key=lambda x: x["score"], reverse=True)
-
-        # Step 5: Enforce Top-K Limit
-        total_found = len(results)
         final_recs = results[:top_k]
-
-        # Step 6: Validate output
-        if total_found == 0:
-            return RecommendationResponse(
-                status="success",
-                customer_id=customer_id,
-                search_query=query,
-                min_score_filter=min_score,
-                total_found=0,
-                returned_count=0,
-                recommendations=[]
-            )
 
         return RecommendationResponse(
             status="success",
             customer_id=customer_id,
             search_query=query,
             min_score_filter=min_score,
-            total_found=total_found,
+            total_found=len(results),
             returned_count=len(final_recs),
             recommendations=[RecommendationItem(**item) for item in final_recs]
-        )
-
-    except ValueError as ve:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid parameter value: {str(ve)}"
         )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An error occurred while processing recommendations: {str(e)}"
+            detail=f"Error filtering recommendations: {str(e)}"
+        )
+
+
+# --- 3. PAGINATED HISTORY ENDPOINT ---
+@router.get(
+    "/recommendations/history",
+    response_model=PaginatedHistoryResponse,
+    summary="Get Paginated Recommendation History"
+)
+def get_recommendation_history(
+    customer_id: Optional[str] = Query(None, description="Filter history by Customer ID"),
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(10, ge=1, le=100, description="Items per page")
+):
+    try:
+        filtered_history = RECOMMENDATION_HISTORY_STORE.copy()
+
+        if customer_id:
+            c_clean = customer_id.strip().upper()
+            filtered_history = [
+                rec for rec in filtered_history 
+                if c_clean in rec["customer_id"].upper()
+            ]
+
+        total_records = len(filtered_history)
+        if total_records == 0:
+            return PaginatedHistoryResponse(
+                status="success",
+                customer_id=customer_id,
+                page=page,
+                limit=limit,
+                total_records=0,
+                total_pages=0,
+                has_next=False,
+                has_prev=False,
+                history=[]
+            )
+
+        total_pages = math.ceil(total_records / limit)
+        start_idx = (page - 1) * limit
+        end_idx = start_idx + limit
+        paginated_records = filtered_history[start_idx:end_idx]
+
+        return PaginatedHistoryResponse(
+            status="success",
+            customer_id=customer_id,
+            page=page,
+            limit=limit,
+            total_records=total_records,
+            total_pages=total_pages,
+            has_next=page < total_pages,
+            has_prev=page > 1,
+            history=[HistoryRecord(**rec) for rec in paginated_records]
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving history: {str(e)}"
         )
