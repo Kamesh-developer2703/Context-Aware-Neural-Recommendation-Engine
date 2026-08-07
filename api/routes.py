@@ -6,6 +6,8 @@ from utils.logger import log_request
 
 from api.cache import refresh_cache
 
+from api.history import save_history
+
 router = APIRouter()
 
 @router.get("/recommendations")
@@ -33,6 +35,11 @@ def recommendations(limit: int = Query(10, ge=1, le=100)):
 def recommendation(customer_id: str):
 
     data = get_recommendations(customer_id)
+
+    save_history(
+    customer_id,
+    data
+)
 
     if len(data) == 0:
 
@@ -99,3 +106,59 @@ def reload_cache():
         "status": "success",
         "message": "Recommendation cache refreshed."
     }
+
+@router.get("/history")
+def recommendation_history():
+
+    import pandas as pd
+
+    try:
+
+        history = pd.read_csv(
+            "outputs/history/recommendation_history.csv"
+        )
+
+        return {
+            "total": len(history),
+            "history": history.to_dict(
+                orient="records"
+            )
+        }
+
+    except FileNotFoundError:
+
+        return {
+            "message": "No history available."
+        }
+
+@router.get("/history/{customer_id}")
+def customer_history(customer_id: str):
+
+    import pandas as pd
+
+    try:
+
+        history = pd.read_csv(
+            "outputs/history/recommendation_history.csv"
+        )
+
+        history["customer_id"] = (
+            history["customer_id"].astype(str)
+        )
+
+        history = history[
+            history["customer_id"] == customer_id
+        ]
+
+        return {
+            "customer_id": customer_id,
+            "history": history.to_dict(
+                orient="records"
+            )
+        }
+
+    except FileNotFoundError:
+
+        return {
+            "message": "No history found."
+        }
