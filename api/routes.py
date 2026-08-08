@@ -8,6 +8,12 @@ from api.cache import refresh_cache
 
 from api.history import save_history
 
+from api.favorites import (
+    add_favorite,
+    get_favorites,
+    remove_favorite
+)
+
 router = APIRouter()
 
 @router.get("/recommendations")
@@ -162,3 +168,30 @@ def customer_history(customer_id: str):
         return {
             "message": "No history found."
         }
+
+@router.post("/favorites/{customer_id}/{article_id}")
+def favorite_article(customer_id: str, article_id: int):
+
+    return add_favorite(
+        customer_id,
+        article_id
+    )
+
+@router.get("/favorites/{customer_id}")
+def view_favorites(customer_id: str):
+
+    favorites = get_favorites(customer_id)
+
+    return {
+        "customer_id": customer_id,
+        "total": len(favorites),
+        "favorites": favorites
+    }
+
+@router.delete("/favorites/{customer_id}/{article_id}")
+def delete_favorite(customer_id: str, article_id: int):
+
+    return remove_favorite(
+        customer_id,
+        article_id
+    )
