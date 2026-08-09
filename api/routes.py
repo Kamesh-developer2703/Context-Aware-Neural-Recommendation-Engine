@@ -1,10 +1,14 @@
 from fastapi import APIRouter, Query, HTTPException
 from api.services import get_recommendations
+from api.schemas import FavoriteArticle, FavoriteResponse
 import logging
 
 router = APIRouter()
 
 logger = logging.getLogger(__name__)
+
+# Temporary in-memory favorite articles store
+_favorite_articles = set()
 
 
 @router.get("/recommendations")
@@ -54,7 +58,8 @@ def customer_recommendations(customer_id: int):
         )
 
     logger.info(
-        "Customer recommendation request completed: customer_id=%s, returned=%s",
+        "Customer recommendation request completed: "
+        "customer_id=%s, returned=%s",
         customer_id,
         len(data)
     )
@@ -64,3 +69,78 @@ def customer_recommendations(customer_id: int):
         "total": len(data),
         "recommendations": data
     }
+
+
+# -----------------------------
+# Favorite Articles APIs
+# -----------------------------
+
+@router.post(
+    "/favorites",
+    response_model=FavoriteResponse
+)
+def add_favorite(article: FavoriteArticle):
+    logger.info(
+        "Favorite article request received: article_id=%s",
+        article.article_id
+    )
+
+    if article.article_id in _favorite_articles:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Article {article.article_id} is already favorited."
+        )
+
+    _favorite_articles.add(article.article_id)
+
+    logger.info(
+        "Article favorited successfully: article_id=%s",
+        article.article_id
+    )
+
+    return FavoriteResponse(
+        status="success",
+        article_id=article.article_id
+    )
+
+
+@router.get("/favorites")
+def get_favorites():
+    logger.info("Favorite articles request received")
+
+    favorites = sorted(_favorite_articles)
+
+    return {
+        "status": "success",
+        "total": len(favorites),
+        "favorites": favorites
+    }
+
+
+@router.delete(
+    "/favorites/{article_id}",
+    response_model=FavoriteResponse
+)
+def remove_favorite(article_id: int):
+    logger.info(
+        "Remove favorite request received: article_id=%s",
+        article_id
+    )
+
+    if article_id not in _favorite_articles:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Article {article_id} is not favorited."
+        )
+
+    _favorite_articles.remove(article_id)
+
+    logger.info(
+        "Article removed from favorites: article_id=%s",
+        article_id
+    )
+
+    return FavoriteResponse(
+        status="success",
+        article_id=article_id
+    )
