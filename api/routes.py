@@ -14,6 +14,12 @@ from api.favorites import (
     remove_favorite
 )
 
+from api.recent import (
+    add_recent,
+    get_recent,
+    remove_recent
+)
+
 router = APIRouter()
 
 @router.get("/recommendations")
@@ -192,6 +198,45 @@ def view_favorites(customer_id: str):
 def delete_favorite(customer_id: str, article_id: int):
 
     return remove_favorite(
+        customer_id,
+        article_id
+    )
+
+@router.post("/recent/{customer_id}/{article_id}")
+def add_recent_article(
+    customer_id: str,
+    article_id: int
+):
+
+    return add_recent(
+        customer_id,
+        article_id
+    )
+
+@router.get("/recent/{customer_id}")
+def view_recent_articles(
+    customer_id: str,
+    limit: int = 10
+):
+
+    recent = get_recent(
+        customer_id,
+        limit
+    )
+
+    return {
+        "customer_id": customer_id,
+        "total": len(recent),
+        "recent": recent
+    }
+
+@router.delete("/recent/{customer_id}/{article_id}")
+def delete_recent_article(
+    customer_id: str,
+    article_id: int
+):
+
+    return remove_recent(
         customer_id,
         article_id
     )
