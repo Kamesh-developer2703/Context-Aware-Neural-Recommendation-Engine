@@ -1,16 +1,22 @@
 import math
 from typing import Optional, List
-from fastapi import APIRouter, Query, HTTPException, status
+from fastapi import APIRouter, Query, Path, HTTPException, status
 from api.schemas import (
     RecommendationResponse, 
     RecommendationItem, 
     PaginatedHistoryResponse, 
-    HistoryRecord
+    HistoryRecord,
+    CustomerProfileResponse,
+    CustomerProfile,
+    CustomerPreferences
 )
 
 router = APIRouter()
 
-# --- MOCK DATA STORES ---
+# =====================================================================
+# 📦 MOCK DATA STORES
+# =====================================================================
+
 CANDIDATE_UNIVERSE = [
     {"article_id": "0108775015", "score": 0.985, "product_type": "Dress", "product_group_name": "Garments"},
     {"article_id": "0108775016", "score": 0.942, "product_type": "Trousers", "product_group_name": "Garments"},
@@ -50,31 +56,42 @@ RECOMMENDATION_HISTORY_STORE = [
     }
 ]
 
+CUSTOMER_PROFILES_STORE = {
+    "CUST_10": {
+        "customer_id": "CUST_10",
+        "name": "Mokshitha",
+        "email": "mokshitha@example.com",
+        "membership_status": "Gold",
+        "age_group": "20-29",
+        "total_purchases": 28,
+        "preferences": {
+            "preferred_categories": ["Dresses", "Trousers", "Jackets"],
+            "frequent_sizes": ["M", "S"],
+            "favorite_colors": ["Black", "Blue", "White"]
+        }
+    },
+    "CUST_20": {
+        "customer_id": "CUST_20",
+        "name": "Alex Smith",
+        "email": "alex.smith@example.com",
+        "membership_status": "Silver",
+        "age_group": "30-39",
+        "total_purchases": 12,
+        "preferences": {
+            "preferred_categories": ["Footwear", "Sportswear"],
+            "frequent_sizes": ["L", "42"],
+            "favorite_colors": ["Red", "Grey"]
+        }
+    }
+}
 
-# --- 1. GENERAL & CUSTOMER RECOMMENDATIONS ENDPOINTS ---
-@router.get(
-    "/recommendations/{customer_id}",
-    response_model=RecommendationResponse,
-    summary="Get Customer Specific Recommendations"
-)
-def get_customer_recommendations(customer_id: str, limit: int = Query(10, ge=1, le=100)):
-    try:
-        recs = CANDIDATE_UNIVERSE[:limit]
-        return RecommendationResponse(
-            status="success",
-            customer_id=customer_id,
-            total_found=len(recs),
-            returned_count=len(recs),
-            recommendations=[RecommendationItem(**item) for item in recs]
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error generating recommendations: {str(e)}"
-        )
 
+# =====================================================================
+# 🛠️ API ENDPOINTS
+# =====================================================================
 
-# --- 2. SEARCH & FILTER RECOMMENDATIONS ENDPOINT ---
+# --- 1. SEARCH & FILTER RECOMMENDATIONS ENDPOINT ---
+# (Placed above dynamic path endpoints to avoid path collision)
 @router.get(
     "/recommendations/search",
     response_model=RecommendationResponse,
@@ -116,7 +133,7 @@ def search_and_filter_recommendations(
         )
 
 
-# --- 3. PAGINATED HISTORY ENDPOINT ---
+# --- 2. PAGINATED HISTORY ENDPOINT ---
 @router.get(
     "/recommendations/history",
     response_model=PaginatedHistoryResponse,
@@ -171,4 +188,65 @@ def get_recommendation_history(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error retrieving history: {str(e)}"
+        )
+
+
+# --- 3. CUSTOMER SPECIFIC RECOMMENDATIONS ENDPOINT ---
+@router.get(
+    "/recommendations/{customer_id}",
+    response_model=RecommendationResponse,
+    summary="Get Customer Specific Recommendations"
+)
+def get_customer_recommendations(
+    customer_id: str = Path(..., min_length=3, max_length=50, description="Customer ID"),
+    limit: int = Query(10, ge=1, le=100, description="Limit returned items")
+):
+    try:
+        recs = CANDIDATE_UNIVERSE[:limit]
+        return RecommendationResponse(
+            status="success",
+            customer_id=customer_id,
+            total_found=len(recs),
+            returned_count=len(recs),
+            recommendations=[RecommendationItem(**item) for item in recs]
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generating recommendations: {str(e)}"
+        )
+
+
+# --- 4. CUSTOMER PROFILE ENDPOINT ---
+@router.get(
+    "/customers/{customer_id}",
+    response_model=CustomerProfileResponse,
+    summary="Get Customer Profile Information",
+    description="Retrieve contextual customer profile data including purchase history count and preferences."
+)
+def get_customer_profile(
+    customer_id: str = Path(..., min_length=3, max_length=50, description="Customer ID (e.g., CUST_10)")
+):
+    try:
+        clean_id = customer_id.strip().upper()
+        
+        if clean_id not in CUSTOMER_PROFILES_STORE:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Customer with ID '{customer_id}' was not found in the records."
+            )
+
+        profile_data = CUSTOMER_PROFILES_STORE[clean_id]
+
+        return CustomerProfileResponse(
+            status="success",
+            data=CustomerProfile(**profile_data)
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving customer profile: {str(e)}"
         )
