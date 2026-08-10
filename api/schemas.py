@@ -1,6 +1,7 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
+
 # --- EXISTING SCHEMAS ---
 class RecommendationItem(BaseModel):
     article_id: str
@@ -58,3 +59,19 @@ class ErrorResponse(BaseModel):
     error_code: str
     message: str
     details: Optional[dict] = None
+class InteractionArticle(BaseModel):
+    article_id: str
+    product_type: str
+    product_group_name: Optional[str] = "Garments"
+    interacted_at: str
+
+class CustomerActivityData(BaseModel):
+    customer_id: str
+    recent_articles: List[InteractionArticle] = []
+    favorites: List[InteractionArticle] = []
+    recommendation_history: List[HistoryRecord] = []
+
+class CustomerActivityResponse(BaseModel):
+    status: str
+    has_activity: bool
+    data: CustomerActivityData

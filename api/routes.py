@@ -8,7 +8,10 @@ from api.schemas import (
     HistoryRecord,
     CustomerProfileResponse,
     CustomerProfile,
-    CustomerPreferences
+    CustomerPreferences,
+    CustomerActivityResponse,
+    CustomerActivityData,
+    InteractionArticle
 )
 
 router = APIRouter()
@@ -249,4 +252,74 @@ def get_customer_profile(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while retrieving customer profile: {str(e)}"
+        )
+CUSTOMER_ACTIVITY_STORE = {
+    "CUST_10": {
+        "recent_articles": [
+            {"article_id": "0108775015", "product_type": "Dress", "product_group_name": "Garments", "interacted_at": "2026-08-10 18:30:00"},
+            {"article_id": "0108775016", "product_type": "Trousers", "product_group_name": "Garments", "interacted_at": "2026-08-09 10:15:00"}
+        ],
+        "favorites": [
+            {"article_id": "0108775015", "product_type": "Dress", "product_group_name": "Garments", "interacted_at": "2026-08-07 12:00:00"},
+            {"article_id": "0108775017", "product_type": "Jacket", "product_group_name": "Garments", "interacted_at": "2026-08-08 15:45:00"}
+        ]
+    },
+    "CUST_20": {
+        "recent_articles": [
+            {"article_id": "0108775020", "product_type": "Sports Shoes", "product_group_name": "Footwear", "interacted_at": "2026-08-05 09:30:00"}
+        ],
+        "favorites": []
+    }
+}
+
+
+# =====================================================================
+# 🛠️ CUSTOMER ACTIVITY ENDPOINT
+# =====================================================================
+
+@router.get(
+    "/customers/{customer_id}/activity",
+    response_model=CustomerActivityResponse,
+    summary="Get Customer Interaction Activity",
+    description="Retrieve recent viewed articles, favorites, and recommendation history for a customer."
+)
+def get_customer_activity(
+    customer_id: str = Path(..., min_length=3, max_length=50, description="Customer ID (e.g., CUST_10)")
+):
+    try:
+        clean_id = customer_id.strip().upper()
+        
+        # 1. Fetch interaction activity (or empty dict if new/no history)
+        activity_info = CUSTOMER_ACTIVITY_STORE.get(clean_id, {
+            "recent_articles": [],
+            "favorites": []
+        })
+
+        # 2. Fetch past recommendation history for this customer from history store
+        user_history_recs = [
+            HistoryRecord(**rec) for rec in RECOMMENDATION_HISTORY_STORE 
+            if rec["customer_id"].upper() == clean_id
+        ]
+
+        recent_articles = [InteractionArticle(**item) for item in activity_info.get("recent_articles", [])]
+        favorites = [InteractionArticle(**item) for item in activity_info.get("favorites", [])]
+
+        # 3. Check if customer has any interaction history
+        has_activity = bool(recent_articles or favorites or user_history_recs)
+
+        return CustomerActivityResponse(
+            status="success",
+            has_activity=has_activity,
+            data=CustomerActivityData(
+                customer_id=customer_id,
+                recent_articles=recent_articles,
+                favorites=favorites,
+                recommendation_history=user_history_recs
+            )
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving customer activity: {str(e)}"
         )
