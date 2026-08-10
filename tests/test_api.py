@@ -103,3 +103,11 @@ def test_delete_missing_favorite():
     )
 
     assert response.status_code == 404
+def test_invalid_favorite_article():
+    response = requests.post(
+        f"{BASE_URL}/favorites",
+        json={"article_id": -1},
+        timeout=10,
+    )
+
+    assert response.status_code == 422

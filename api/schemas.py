@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class RecommendationResponse(BaseModel):
@@ -7,7 +7,11 @@ class RecommendationResponse(BaseModel):
 
 
 class FavoriteArticle(BaseModel):
-    article_id: int
+    article_id: int = Field(
+        ...,
+        gt=0,
+        description="Positive article ID"
+    )
 
 
 class FavoriteResponse(BaseModel):
