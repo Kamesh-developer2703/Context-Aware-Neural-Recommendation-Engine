@@ -20,6 +20,12 @@ from api.recent import (
     remove_recent
 )
 
+from api.feedback import (
+    add_feedback,
+    get_feedback,
+    delete_feedback
+)
+
 router = APIRouter()
 
 @router.get("/recommendations")
@@ -237,6 +243,41 @@ def delete_recent_article(
 ):
 
     return remove_recent(
+        customer_id,
+        article_id
+    )
+
+@router.post("/feedback/{customer_id}/{article_id}")
+def submit_feedback(
+    customer_id: str,
+    article_id: int,
+    feedback: str
+):
+
+    return add_feedback(
+        customer_id,
+        article_id,
+        feedback
+    )
+
+@router.get("/feedback/{customer_id}")
+def view_feedback(customer_id: str):
+
+    feedback = get_feedback(customer_id)
+
+    return {
+        "customer_id": customer_id,
+        "total": len(feedback),
+        "feedback": feedback
+    }
+
+@router.delete("/feedback/{customer_id}/{article_id}")
+def remove_feedback(
+    customer_id: str,
+    article_id: int
+):
+
+    return delete_feedback(
         customer_id,
         article_id
     )
