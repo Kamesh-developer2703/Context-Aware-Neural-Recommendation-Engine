@@ -8,6 +8,8 @@ from api.cache import refresh_cache
 
 from api.history import save_history
 
+from api.trending import get_trending
+
 from api.favorites import (
     add_favorite,
     get_favorites,
@@ -281,3 +283,20 @@ def remove_feedback(
         customer_id,
         article_id
     )
+
+@router.get("/trending")
+def trending_articles(limit: int = 10):
+
+    if limit < 1:
+        return {
+            "status": "failed",
+            "message": "Limit must be greater than 0."
+        }
+
+    trending = get_trending(limit)
+
+    return {
+        "status": "success",
+        "total": len(trending),
+        "trending": trending
+    }
