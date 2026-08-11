@@ -1,16 +1,25 @@
 import math
 from typing import Optional, List
-from fastapi import APIRouter, Query, HTTPException, status
+from fastapi import APIRouter, Query, Path, HTTPException, status
 from api.schemas import (
     RecommendationResponse, 
     RecommendationItem, 
     PaginatedHistoryResponse, 
-    HistoryRecord
+    HistoryRecord,
+    CustomerProfileResponse,
+    CustomerProfile,
+    AggregatedCustomerActivityResponse,
+    CustomerActivityTreeData,
+    InteractionArticle,
+    FeedbackItem
 )
 
 router = APIRouter()
 
-# --- MOCK DATA STORES ---
+# =====================================================================
+# 📦 MOCK DATA STORES
+# =====================================================================
+
 CANDIDATE_UNIVERSE = [
     {"article_id": "0108775015", "score": 0.985, "product_type": "Dress", "product_group_name": "Garments"},
     {"article_id": "0108775016", "score": 0.942, "product_type": "Trousers", "product_group_name": "Garments"},
@@ -50,31 +59,64 @@ RECOMMENDATION_HISTORY_STORE = [
     }
 ]
 
+CUSTOMER_PROFILES_STORE = {
+    "CUST_10": {
+        "customer_id": "CUST_10",
+        "name": "Mokshitha",
+        "email": "mokshitha@example.com",
+        "membership_status": "Gold",
+        "age_group": "20-29",
+        "total_purchases": 28,
+        "preferences": {
+            "preferred_categories": ["Dresses", "Trousers", "Jackets"],
+            "frequent_sizes": ["M", "S"],
+            "favorite_colors": ["Black", "Blue", "White"]
+        }
+    },
+    "CUST_20": {
+        "customer_id": "CUST_20",
+        "name": "Alex Smith",
+        "email": "alex.smith@example.com",
+        "membership_status": "Silver",
+        "age_group": "30-39",
+        "total_purchases": 12,
+        "preferences": {
+            "preferred_categories": ["Footwear", "Sportswear"],
+            "frequent_sizes": ["L", "42"],
+            "favorite_colors": ["Red", "Grey"]
+        }
+    }
+}
 
-# --- 1. GENERAL & CUSTOMER RECOMMENDATIONS ENDPOINTS ---
-@router.get(
-    "/recommendations/{customer_id}",
-    response_model=RecommendationResponse,
-    summary="Get Customer Specific Recommendations"
-)
-def get_customer_recommendations(customer_id: str, limit: int = Query(10, ge=1, le=100)):
-    try:
-        recs = CANDIDATE_UNIVERSE[:limit]
-        return RecommendationResponse(
-            status="success",
-            customer_id=customer_id,
-            total_found=len(recs),
-            returned_count=len(recs),
-            recommendations=[RecommendationItem(**item) for item in recs]
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error generating recommendations: {str(e)}"
-        )
+CUSTOMER_ACTIVITY_STORE = {
+    "CUST_10": {
+        "recently_viewed": [
+            {"article_id": "0108775015", "product_type": "Dress", "product_group_name": "Garments", "interacted_at": "2026-08-10 18:30:00"},
+            {"article_id": "0108775016", "product_type": "Trousers", "product_group_name": "Garments", "interacted_at": "2026-08-09 10:15:00"}
+        ],
+        "favorites": [
+            {"article_id": "0108775015", "product_type": "Dress", "product_group_name": "Garments", "interacted_at": "2026-08-07 12:00:00"},
+            {"article_id": "0108775017", "product_type": "Jacket", "product_group_name": "Garments", "interacted_at": "2026-08-08 15:45:00"}
+        ]
+    }
+}
 
+CUSTOMER_FEEDBACK_STORE = [
+    {
+        "feedback_id": "FB_2001",
+        "customer_id": "CUST_10",
+        "article_id": "0108775015",
+        "rating": 5,
+        "comment": "Perfect fit and high-quality material!",
+        "created_at": "2026-08-08 16:20:00"
+    }
+]
 
-# --- 2. SEARCH & FILTER RECOMMENDATIONS ENDPOINT ---
+# =====================================================================
+# 🛠️ API ENDPOINTS
+# =====================================================================
+
+# --- 1. SEARCH & FILTER RECOMMENDATIONS ENDPOINT ---
 @router.get(
     "/recommendations/search",
     response_model=RecommendationResponse,
@@ -116,7 +158,7 @@ def search_and_filter_recommendations(
         )
 
 
-# --- 3. PAGINATED HISTORY ENDPOINT ---
+# --- 2. PAGINATED HISTORY ENDPOINT ---
 @router.get(
     "/recommendations/history",
     response_model=PaginatedHistoryResponse,
@@ -171,4 +213,122 @@ def get_recommendation_history(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error retrieving history: {str(e)}"
+        )
+
+
+# --- 3. CUSTOMER SPECIFIC RECOMMENDATIONS ENDPOINT ---
+@router.get(
+    "/recommendations/{customer_id}",
+    response_model=RecommendationResponse,
+    summary="Get Customer Specific Recommendations"
+)
+def get_customer_recommendations(
+    customer_id: str = Path(..., min_length=3, max_length=50, description="Customer ID"),
+    limit: int = Query(10, ge=1, le=100, description="Limit returned items")
+):
+    try:
+        recs = CANDIDATE_UNIVERSE[:limit]
+        return RecommendationResponse(
+            status="success",
+            customer_id=customer_id,
+            total_found=len(recs),
+            returned_count=len(recs),
+            recommendations=[RecommendationItem(**item) for item in recs]
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generating recommendations: {str(e)}"
+        )
+
+
+# --- 4. CUSTOMER PROFILE ENDPOINT ---
+@router.get(
+    "/customers/{customer_id}",
+    response_model=CustomerProfileResponse,
+    summary="Get Customer Profile Information",
+    description="Retrieve contextual customer profile data including purchase history count and preferences."
+)
+def get_customer_profile(
+    customer_id: str = Path(..., min_length=3, max_length=50, description="Customer ID (e.g., CUST_10)")
+):
+    try:
+        clean_id = customer_id.strip().upper()
+        
+        if clean_id not in CUSTOMER_PROFILES_STORE:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Customer with ID '{customer_id}' was not found in the records."
+            )
+
+        profile_data = CUSTOMER_PROFILES_STORE[clean_id]
+
+        return CustomerProfileResponse(
+            status="success",
+            data=CustomerProfile(**profile_data)
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving customer profile: {str(e)}"
+        )
+
+
+# --- 5. AGGREGATED CUSTOMER ACTIVITY ENDPOINT ---
+@router.get(
+    "/customers/{customer_id}/activity",
+    response_model=AggregatedCustomerActivityResponse,
+    summary="Get Aggregated Customer Activity Tree",
+    description="Combines live recommendations, favorites, recently viewed items, recommendation history, and feedback."
+)
+def get_customer_activity_tree(
+    customer_id: str = Path(..., min_length=3, max_length=50, description="Customer ID (e.g., CUST_10)")
+):
+    try:
+        clean_id = customer_id.strip().upper()
+
+        # 1. Live Recommendations
+        live_recs = [RecommendationItem(**item) for item in CANDIDATE_UNIVERSE[:5]]
+
+        # 2. Activity Store (Recently Viewed & Favorites)
+        user_activity = CUSTOMER_ACTIVITY_STORE.get(clean_id, {"recently_viewed": [], "favorites": []})
+        recently_viewed = [InteractionArticle(**item) for item in user_activity.get("recently_viewed", [])]
+        favorites = [InteractionArticle(**item) for item in user_activity.get("favorites", [])]
+
+        # 3. Recommendation History
+        user_history = [
+            HistoryRecord(**rec) for rec in RECOMMENDATION_HISTORY_STORE 
+            if rec["customer_id"].upper() == clean_id
+        ]
+
+        # 4. Feedback
+        user_feedback = [
+            FeedbackItem(**fb) for fb in CUSTOMER_FEEDBACK_STORE 
+            if fb["customer_id"].upper() == clean_id
+        ]
+
+        # 5. Activity Status Check
+        has_activity = bool(recently_viewed or favorites or user_history or user_feedback)
+
+        return AggregatedCustomerActivityResponse(
+            status="success",
+            customer_id=customer_id,
+            has_activity=has_activity,
+            data=CustomerActivityTreeData(
+                customer_id=customer_id,
+                recommendations=live_recs,
+                favorites=favorites,
+                recently_viewed=recently_viewed,
+                recommendation_history=user_history,
+                feedback=user_feedback
+            )
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error aggregating customer activity: {str(e)}"
         )

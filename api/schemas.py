@@ -1,14 +1,16 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
-# Individual Item Model
+# =====================================================================
+# 📦 RECOMMENDATION SCHEMAS
+# =====================================================================
+
 class RecommendationItem(BaseModel):
     article_id: str
     score: float
     product_type: str
     product_group_name: Optional[str] = "Garments"
 
-# Single & Search Recommendation Response Model
 class RecommendationResponse(BaseModel):
     status: str
     customer_id: Optional[str] = None
@@ -18,14 +20,16 @@ class RecommendationResponse(BaseModel):
     returned_count: int
     recommendations: List[RecommendationItem]
 
-# History Record Item Model
+# =====================================================================
+# 📜 HISTORY SCHEMAS
+# =====================================================================
+
 class HistoryRecord(BaseModel):
     recommendation_id: str
     customer_id: str
     timestamp: str
     items_recommended: List[RecommendationItem]
 
-# Paginated History Response Model
 class PaginatedHistoryResponse(BaseModel):
     status: str
     customer_id: Optional[str] = None
@@ -37,7 +41,63 @@ class PaginatedHistoryResponse(BaseModel):
     has_prev: bool
     history: List[HistoryRecord]
 
-# Standard Error Response Model
+# =====================================================================
+# 👤 CUSTOMER PROFILE SCHEMAS
+# =====================================================================
+
+class CustomerPreferences(BaseModel):
+    preferred_categories: List[str]
+    frequent_sizes: List[str]
+    favorite_colors: List[str]
+
+class CustomerProfile(BaseModel):
+    customer_id: str = Field(..., min_length=3, max_length=50, description="Unique customer identifier")
+    name: str
+    email: str
+    membership_status: str
+    age_group: Optional[str] = "25-34"
+    total_purchases: int
+    preferences: CustomerPreferences
+
+class CustomerProfileResponse(BaseModel):
+    status: str
+    data: CustomerProfile
+
+# =====================================================================
+# 🌳 AGGREGATED CUSTOMER ACTIVITY & FEEDBACK SCHEMAS
+# =====================================================================
+
+class InteractionArticle(BaseModel):
+    article_id: str
+    product_type: str
+    product_group_name: Optional[str] = "Garments"
+    interacted_at: str
+
+class FeedbackItem(BaseModel):
+    feedback_id: str
+    article_id: str
+    rating: int = Field(..., ge=1, le=5, description="Rating between 1 and 5 stars")
+    comment: Optional[str] = None
+    created_at: str
+
+class CustomerActivityTreeData(BaseModel):
+    customer_id: str
+    recommendations: List[RecommendationItem] = []
+    favorites: List[InteractionArticle] = []
+    recently_viewed: List[InteractionArticle] = []
+    recommendation_history: List[HistoryRecord] = []
+    feedback: List[FeedbackItem] = []
+
+class AggregatedCustomerActivityResponse(BaseModel):
+    status: str
+    customer_id: str
+    has_activity: bool
+    data: CustomerActivityTreeData
+
+# =====================================================================
+# ⚠️ ERROR SCHEMAS
+# =====================================================================
+
 class ErrorResponse(BaseModel):
     status: str
     error_code: str
