@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query, HTTPException
-from api.services import get_recommendations
+from api.services import get_recommendations, get_trending
 from api.schemas import FavoriteArticle, FavoriteResponse
 import logging
 
@@ -103,6 +103,31 @@ def add_favorite(article: FavoriteArticle):
         article_id=article.article_id
     )
 
+# -----------------------------
+# Trending Articles API
+# -----------------------------
+
+@router.get("/trending")
+def trending(
+    limit: int = Query(10, ge=1, le=100)
+):
+    logger.info(
+        "Trending request received: limit=%s",
+        limit
+    )
+
+    data = get_trending(limit)
+
+    logger.info(
+        "Trending request completed: returned=%s",
+        len(data)
+    )
+
+    return {
+        "status": "success",
+        "total": len(data),
+        "trending": data
+    }
 
 @router.get("/favorites")
 def get_favorites():
