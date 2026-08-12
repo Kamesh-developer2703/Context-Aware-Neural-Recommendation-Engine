@@ -1,5 +1,9 @@
 from fastapi import APIRouter, Query, HTTPException
-from api.services import get_recommendations, get_trending
+from api.services import (
+    get_recommendations,
+    get_trending,
+    get_similar_articles,
+)
 from api.schemas import FavoriteArticle, FavoriteResponse
 import logging
 
@@ -127,6 +131,50 @@ def trending(
         "status": "success",
         "total": len(data),
         "trending": data
+    }
+# -----------------------------
+# Similar Articles API
+# -----------------------------
+
+@router.get("/similar/{article_id}")
+def similar_articles(
+    article_id: int,
+    limit: int = Query(10, ge=1, le=100),
+):
+    logger.info(
+        "Similar articles request received: "
+        "article_id=%s, limit=%s",
+        article_id,
+        limit,
+    )
+
+    data = get_similar_articles(
+        article_id,
+        limit,
+    )
+
+    if data is None:
+        logger.warning(
+            "Article not found: article_id=%s",
+            article_id,
+        )
+        raise HTTPException(
+            status_code=404,
+            detail=f"Article {article_id} not found.",
+        )
+
+    logger.info(
+        "Similar articles request completed: "
+        "article_id=%s, returned=%s",
+        article_id,
+        len(data),
+    )
+
+    return {
+        "status": "success",
+        "article_id": article_id,
+        "total": len(data),
+        "similar_articles": data,
     }
 
 @router.get("/favorites")

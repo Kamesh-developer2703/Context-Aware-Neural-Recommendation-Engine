@@ -88,3 +88,51 @@ def get_trending(limit=10):
     return trending.head(limit).to_dict(
         orient="records"
     )
+# -----------------------------
+# Similar Articles
+# -----------------------------
+
+def get_similar_articles(article_id, limit=10):
+    df = _load_transactions()
+
+    if df.empty:
+        return []
+
+    required_columns = {"article_id", "customer_id"}
+
+    if not required_columns.issubset(df.columns):
+        return []
+
+    # Check whether requested article exists
+    article_rows = df[df["article_id"] == article_id]
+
+    if article_rows.empty:
+        return None
+
+    # Customers who interacted with the requested article
+    customers = article_rows["customer_id"].unique()
+
+    # Articles interacted with by the same customers
+    similar = df[
+        df["customer_id"].isin(customers)
+        & (df["article_id"] != article_id)
+    ]
+
+    if similar.empty:
+        return []
+
+    # Count how many interactions each other article received
+    # from the same customer group
+    similar_articles = (
+        similar.groupby("article_id")
+        .size()
+        .reset_index(name="similarity_count")
+        .sort_values(
+            "similarity_count",
+            ascending=False
+        )
+    )
+
+    return similar_articles.head(limit).to_dict(
+        orient="records"
+    )
