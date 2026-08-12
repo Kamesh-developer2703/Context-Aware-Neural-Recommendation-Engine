@@ -10,6 +10,8 @@ from api.history import save_history
 
 from api.trending import get_trending
 
+from api.similar import get_similar_articles
+
 from api.favorites import (
     add_favorite,
     get_favorites,
@@ -299,4 +301,34 @@ def trending_articles(limit: int = 10):
         "status": "success",
         "total": len(trending),
         "trending": trending
+    }
+
+@router.get("/similar/{article_id}")
+def similar_articles(
+    article_id: int,
+    limit: int = 10
+):
+
+    if limit < 1:
+        return {
+            "status": "failed",
+            "message": "Limit must be greater than 0."
+        }
+
+    results = get_similar_articles(
+        article_id,
+        limit
+    )
+
+    if results is None:
+        return {
+            "status": "failed",
+            "message": "Article not found."
+        }
+
+    return {
+        "status": "success",
+        "article_id": article_id,
+        "total": len(results),
+        "similar": results
     }
