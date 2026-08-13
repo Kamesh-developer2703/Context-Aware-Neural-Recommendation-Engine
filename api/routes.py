@@ -30,6 +30,7 @@ from api.feedback import (
     delete_feedback
 )
 
+from api.personalized import get_personalized_recommendations
 router = APIRouter()
 
 @router.get("/recommendations")
@@ -331,4 +332,35 @@ def similar_articles(
         "article_id": article_id,
         "total": len(results),
         "similar": results
+    }
+
+@router.get("/personalized/{customer_id}")
+def personalized_recommendations(
+    customer_id: str,
+    limit: int = 10
+):
+
+    if limit < 1:
+        return {
+            "status": "failed",
+            "message": "Limit must be greater than 0."
+        }
+
+    recommendations = get_personalized_recommendations(
+        customer_id,
+        limit
+    )
+
+    if not recommendations:
+
+        return {
+            "status": "failed",
+            "message": "No personalized recommendations found."
+        }
+
+    return {
+        "status": "success",
+        "customer_id": customer_id,
+        "total": len(recommendations),
+        "recommendations": recommendations
     }
