@@ -63,6 +63,70 @@ def get_recommendations(customer_id=None):
 
 
 # -----------------------------
+# Personalized Recommendations
+# -----------------------------
+
+def get_personalized_recommendations(
+    customer_id,
+    limit=10,
+    favorite_articles=None,
+    recently_viewed=None,
+    disliked_articles=None
+):
+    df = _load_recommendations()
+
+    if df.empty:
+        return []
+
+    # Customer-specific recommendations
+    if "customer_id" in df.columns:
+        df = df[df["customer_id"] == customer_id]
+
+    if df.empty:
+        return []
+
+    # Recommended item identifier in current dataset
+    item_column = "sample_id"
+
+    if item_column not in df.columns:
+        return []
+
+    # Remove already-favorited articles
+    if favorite_articles:
+        df = df[
+            ~df[item_column].isin(favorite_articles)
+        ]
+
+    # Remove recently viewed articles
+    if recently_viewed:
+        df = df[
+            ~df[item_column].isin(recently_viewed)
+        ]
+
+    # Remove disliked articles
+    if disliked_articles:
+        df = df[
+            ~df[item_column].isin(disliked_articles)
+        ]
+
+    # Sort by recommendation score
+    if "score" in df.columns:
+        df = df.sort_values(
+            "score",
+            ascending=False
+        )
+
+    # Remove duplicate recommended items
+    df = df.drop_duplicates(
+        subset=[item_column]
+    )
+
+    return df.head(limit).to_dict(
+        orient="records"
+    )
+
+
+# -----------------------------
 # Trending
 # -----------------------------
 
@@ -96,43 +160,46 @@ def get_similar_articles(article_id, limit=10):
     df = _load_transactions()
 
     if df.empty:
-        return []
+        return None
 
-    required_columns = {"article_id", "customer_id"}
-
-    if not required_columns.issubset(df.columns):
-        return []
+    if "article_id" not in df.columns:
+        return None
 
     # Check whether requested article exists
-    article_rows = df[df["article_id"] == article_id]
-
-    if article_rows.empty:
+    if article_id not in df["article_id"].values:
         return None
 
     # Customers who interacted with the requested article
-    customers = article_rows["customer_id"].unique()
+    target_customers = set(
+        df.loc[
+            df["article_id"] == article_id,
+            "customer_id"
+        ]
+    )
 
-    # Articles interacted with by the same customers
+    if not target_customers:
+        return []
+
+    # Find other articles viewed/bought by the same customers
     similar = df[
-        df["customer_id"].isin(customers)
+        df["customer_id"].isin(target_customers)
         & (df["article_id"] != article_id)
     ]
 
     if similar.empty:
         return []
 
-    # Count how many interactions each other article received
-    # from the same customer group
-    similar_articles = (
+    # Count how many common customers interacted with each article
+    similar = (
         similar.groupby("article_id")
         .size()
-        .reset_index(name="similarity_count")
+        .reset_index(name="similarity_score")
         .sort_values(
-            "similarity_count",
+            "similarity_score",
             ascending=False
         )
     )
 
-    return similar_articles.head(limit).to_dict(
+    return similar.head(limit).to_dict(
         orient="records"
     )

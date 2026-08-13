@@ -2,7 +2,8 @@ from fastapi import APIRouter, Query, HTTPException
 from api.services import (
     get_recommendations,
     get_trending,
-    get_similar_articles,
+    get_personalized_recommendations,
+    get_similar_articles
 )
 from api.schemas import FavoriteArticle, FavoriteResponse
 import logging
@@ -13,7 +14,11 @@ logger = logging.getLogger(__name__)
 
 # Temporary in-memory favorite articles store
 _favorite_articles = set()
+# Recently viewed articles per customer
+_recently_viewed = {}
 
+# Disliked articles per customer
+_disliked_articles = {}
 
 @router.get("/recommendations")
 def recommendations(limit: int = Query(10, ge=1, le=100)):
@@ -79,7 +84,131 @@ def customer_recommendations(
         "total": len(recommendations_data),
         "recommendations": recommendations_data
     }
+@router.get("/personalized/{customer_id}")
+def personalized_recommendations(
+    customer_id: int,
+    limit: int = Query(10, ge=1, le=100)
+):
+    logger.info(
+        "Personalized recommendation request: "
+        "customer_id=%s, limit=%s",
+        customer_id,
+        limit
+    )
 
+    favorite_articles = _favorite_articles
+
+    recently_viewed = _recently_viewed.get(
+        customer_id,
+        set()
+    )
+
+    disliked_articles = _disliked_articles.get(
+        customer_id,
+        set()
+    )
+
+    data = get_personalized_recommendations(
+        customer_id=customer_id,
+        limit=limit,
+        favorite_articles=favorite_articles,
+        recently_viewed=recently_viewed,
+        disliked_articles=disliked_articles
+    )
+
+    if len(data) == 0:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"No personalized recommendations found "
+                f"for customer_id={customer_id}"
+            )
+        )
+
+    return {
+        "status": "success",
+        "customer_id": customer_id,
+        "total": len(data),
+        "recommendations": data
+    }
+@router.post("/recently-viewed/{customer_id}/{article_id}")
+def add_recently_viewed(
+    customer_id: int,
+    article_id: int
+):
+    if customer_id not in _recently_viewed:
+        _recently_viewed[customer_id] = set()
+
+    _recently_viewed[customer_id].add(article_id)
+
+    logger.info(
+        "Article marked as recently viewed: "
+        "customer_id=%s, article_id=%s",
+        customer_id,
+        article_id
+    )
+
+    return {
+        "status": "success",
+        "customer_id": customer_id,
+        "article_id": article_id
+    }
+
+
+@router.get("/recently-viewed/{customer_id}")
+def get_recently_viewed(customer_id: int):
+    articles = sorted(
+        _recently_viewed.get(
+            customer_id,
+            set()
+        )
+    )
+
+    return {
+        "status": "success",
+        "customer_id": customer_id,
+        "total": len(articles),
+        "recently_viewed": articles
+    }
+@router.post("/disliked/{customer_id}/{article_id}")
+def add_disliked(
+    customer_id: int,
+    article_id: int
+):
+    if customer_id not in _disliked_articles:
+        _disliked_articles[customer_id] = set()
+
+    _disliked_articles[customer_id].add(article_id)
+
+    logger.info(
+        "Article disliked: "
+        "customer_id=%s, article_id=%s",
+        customer_id,
+        article_id
+    )
+
+    return {
+        "status": "success",
+        "customer_id": customer_id,
+        "article_id": article_id
+    }
+
+
+@router.get("/disliked/{customer_id}")
+def get_disliked(customer_id: int):
+    articles = sorted(
+        _disliked_articles.get(
+            customer_id,
+            set()
+        )
+    )
+
+    return {
+        "status": "success",
+        "customer_id": customer_id,
+        "total": len(articles),
+        "disliked": articles
+    }
 @router.post(
     "/favorites",
     response_model=FavoriteResponse
