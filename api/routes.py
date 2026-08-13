@@ -43,10 +43,14 @@ def recommendations(limit: int = Query(10, ge=1, le=100)):
 
 
 @router.get("/recommendations/{customer_id}")
-def customer_recommendations(customer_id: int):
+def customer_recommendations(
+    customer_id: int,
+    limit: int = Query(10, ge=1, le=100)
+):
     logger.info(
-        "Customer recommendation request received: customer_id=%s",
-        customer_id
+        "Customer recommendation request received: customer_id=%s, limit=%s",
+        customer_id,
+        limit
     )
 
     data = get_recommendations(customer_id)
@@ -61,23 +65,20 @@ def customer_recommendations(customer_id: int):
             detail=f"No recommendations found for customer_id={customer_id}"
         )
 
+    recommendations_data = data[:limit]
+
     logger.info(
         "Customer recommendation request completed: "
         "customer_id=%s, returned=%s",
         customer_id,
-        len(data)
+        len(recommendations_data)
     )
 
     return {
         "customer_id": customer_id,
-        "total": len(data),
-        "recommendations": data
+        "total": len(recommendations_data),
+        "recommendations": recommendations_data
     }
-
-
-# -----------------------------
-# Favorite Articles APIs
-# -----------------------------
 
 @router.post(
     "/favorites",
