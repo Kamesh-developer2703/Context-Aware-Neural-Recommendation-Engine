@@ -103,3 +103,18 @@ class ErrorResponse(BaseModel):
     error_code: str
     message: str
     details: Optional[dict] = None
+
+
+# --- TRENDING ARTICLES SCHEMAS ---
+class TrendingArticle(BaseModel):
+    article_id: str
+    product_type: str
+    product_group_name: Optional[str] = "Garments"
+    popularity_score: float
+    total_interactions: int
+
+class TrendingResponse(BaseModel):
+    status: str
+    limit: int
+    total_trending: int
+    data: List[TrendingArticle]

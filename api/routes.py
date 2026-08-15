@@ -11,7 +11,9 @@ from api.schemas import (
     AggregatedCustomerActivityResponse,
     CustomerActivityTreeData,
     InteractionArticle,
-    FeedbackItem
+    FeedbackItem,
+    TrendingResponse,
+    TrendingArticle
 )
 
 router = APIRouter()
@@ -112,11 +114,65 @@ CUSTOMER_FEEDBACK_STORE = [
     }
 ]
 
+TRENDING_UNIVERSE = [
+    {"article_id": "0108775015", "product_type": "Dress", "product_group_name": "Garments", "popularity_score": 98.5, "total_interactions": 1420},
+    {"article_id": "0108775016", "product_type": "Trousers", "product_group_name": "Garments", "popularity_score": 94.2, "total_interactions": 1180},
+    {"article_id": "0108775020", "product_type": "Sports Shoes", "product_group_name": "Footwear", "popularity_score": 89.1, "total_interactions": 950},
+    {"article_id": "0108775017", "product_type": "Jacket", "product_group_name": "Garments", "popularity_score": 85.4, "total_interactions": 820},
+    {"article_id": "0108775018", "product_type": "Sweater", "product_group_name": "Garments", "popularity_score": 81.2, "total_interactions": 710},
+    {"article_id": "0108775019", "product_type": "Top", "product_group_name": "Garments", "popularity_score": 76.5, "total_interactions": 630},
+    {"article_id": "0108775021", "product_type": "Running Shorts", "product_group_name": "Sportswear", "popularity_score": 69.0, "total_interactions": 540},
+    {"article_id": "0108775022", "product_type": "Cap", "product_group_name": "Accessories", "popularity_score": 55.0, "total_interactions": 320},
+]
+
+
 # =====================================================================
 # 🛠️ API ENDPOINTS
 # =====================================================================
 
-# --- 1. SEARCH & FILTER RECOMMENDATIONS ENDPOINT ---
+# --- 1. TRENDING API ENDPOINT ---
+@router.get(
+    "/trending",
+    response_model=TrendingResponse,
+    summary="Get Trending Articles",
+    description="Retrieve top trending articles sorted by popularity and interaction volume."
+)
+def get_trending_articles(
+    limit: int = Query(10, ge=1, le=100, description="Number of trending items to return (1-100)")
+):
+    try:
+        if not TRENDING_UNIVERSE:
+            return TrendingResponse(
+                status="success",
+                limit=limit,
+                total_trending=0,
+                data=[]
+            )
+
+        sorted_trending = sorted(
+            TRENDING_UNIVERSE, 
+            key=lambda x: x["popularity_score"], 
+            reverse=True
+        )
+
+        selected_items = sorted_trending[:limit]
+
+        return TrendingResponse(
+            status="success",
+            limit=limit,
+            total_trending=len(selected_items),
+            data=[TrendingArticle(**item) for item in selected_items]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while fetching trending articles: {str(e)}"
+        )
+
+
+# --- 2. SEARCH & FILTER RECOMMENDATIONS ENDPOINT ---
 @router.get(
     "/recommendations/search",
     response_model=RecommendationResponse,
@@ -158,7 +214,7 @@ def search_and_filter_recommendations(
         )
 
 
-# --- 2. PAGINATED HISTORY ENDPOINT ---
+# --- 3. PAGINATED HISTORY ENDPOINT ---
 @router.get(
     "/recommendations/history",
     response_model=PaginatedHistoryResponse,
@@ -216,7 +272,7 @@ def get_recommendation_history(
         )
 
 
-# --- 3. CUSTOMER SPECIFIC RECOMMENDATIONS ENDPOINT ---
+# --- 4. CUSTOMER SPECIFIC RECOMMENDATIONS ENDPOINT ---
 @router.get(
     "/recommendations/{customer_id}",
     response_model=RecommendationResponse,
@@ -242,7 +298,7 @@ def get_customer_recommendations(
         )
 
 
-# --- 4. CUSTOMER PROFILE ENDPOINT ---
+# --- 5. CUSTOMER PROFILE ENDPOINT ---
 @router.get(
     "/customers/{customer_id}",
     response_model=CustomerProfileResponse,
@@ -277,7 +333,7 @@ def get_customer_profile(
         )
 
 
-# --- 5. AGGREGATED CUSTOMER ACTIVITY ENDPOINT ---
+# --- 6. AGGREGATED CUSTOMER ACTIVITY ENDPOINT ---
 @router.get(
     "/customers/{customer_id}/activity",
     response_model=AggregatedCustomerActivityResponse,
