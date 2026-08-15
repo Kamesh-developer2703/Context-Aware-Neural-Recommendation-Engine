@@ -95,17 +95,9 @@ class AggregatedCustomerActivityResponse(BaseModel):
     data: CustomerActivityTreeData
 
 # =====================================================================
-# ⚠️ ERROR SCHEMAS
+# 🔥 TRENDING ARTICLES SCHEMAS
 # =====================================================================
 
-class ErrorResponse(BaseModel):
-    status: str
-    error_code: str
-    message: str
-    details: Optional[dict] = None
-
-
-# --- TRENDING ARTICLES SCHEMAS ---
 class TrendingArticle(BaseModel):
     article_id: str
     product_type: str
@@ -119,6 +111,10 @@ class TrendingResponse(BaseModel):
     total_trending: int
     data: List[TrendingArticle]
 
+# =====================================================================
+# 🔗 SIMILAR ARTICLES SCHEMAS
+# =====================================================================
+
 class SimilarArticleItem(BaseModel):
     article_id: str
     similarity_score: float = Field(..., ge=0.0, le=1.0, description="Cosine similarity score")
@@ -131,3 +127,32 @@ class SimilarArticlesResponse(BaseModel):
     limit: int
     total_found: int
     data: List[SimilarArticleItem]
+
+# =====================================================================
+# 🎯 PERSONALIZED RECOMMENDATIONS SCHEMAS
+# =====================================================================
+
+class PersonalizedRecommendationItem(BaseModel):
+    article_id: str
+    personalized_score: float = Field(..., ge=0.0, le=1.0, description="Context-aware neural ranking score")
+    product_type: str
+    product_group_name: Optional[str] = "Garments"
+    affinity_reason: Optional[str] = "High Category Affinity"
+
+class PersonalizedRecommendationResponse(BaseModel):
+    status: str
+    customer_id: str
+    is_fallback: bool
+    limit: int
+    total_returned: int
+    recommendations: List[PersonalizedRecommendationItem]
+
+# =====================================================================
+# ⚠️ ERROR SCHEMAS
+# =====================================================================
+
+class ErrorResponse(BaseModel):
+    status: str
+    error_code: str
+    message: str
+    details: Optional[dict] = None

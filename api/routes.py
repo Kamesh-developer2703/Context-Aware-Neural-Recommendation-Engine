@@ -15,7 +15,9 @@ from api.schemas import (
     TrendingResponse,
     TrendingArticle,
     SimilarArticlesResponse,
-    SimilarArticleItem
+    SimilarArticleItem,
+    PersonalizedRecommendationResponse,
+    PersonalizedRecommendationItem
 )
 
 router = APIRouter()
@@ -454,4 +456,83 @@ def get_similar_articles(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while retrieving similar articles: {str(e)}"
+        )
+# =====================================================================
+# 📦 MOCK PERSONALIZED ENGINE DATA STORE
+# =====================================================================
+
+PERSONALIZED_PREFERENCE_SCORES = {
+    "CUST_10": [
+        {"article_id": "0108775015", "personalized_score": 0.992, "product_type": "Dress", "product_group_name": "Garments", "affinity_reason": "Favorite Category & Color Match"},
+        {"article_id": "0108775017", "personalized_score": 0.945, "product_type": "Jacket", "product_group_name": "Garments", "affinity_reason": "Previous High Rating"},
+        {"article_id": "0108775016", "personalized_score": 0.910, "product_type": "Trousers", "product_group_name": "Garments", "affinity_reason": "Recently Viewed Sequence"},
+        {"article_id": "0108775018", "personalized_score": 0.865, "product_type": "Sweater", "product_group_name": "Garments", "affinity_reason": "Seasonal Neural Match"},
+    ],
+    "CUST_20": [
+        {"article_id": "0108775020", "personalized_score": 0.965, "product_type": "Sports Shoes", "product_group_name": "Footwear", "affinity_reason": "Category Interaction Affinity"},
+        {"article_id": "0108775021", "personalized_score": 0.880, "product_type": "Running Shorts", "product_group_name": "Sportswear", "affinity_reason": "Cross-category Neural Match"},
+    ]
+}
+
+# =====================================================================
+# 🛠️ PERSONALIZED RECOMMENDATIONS ENDPOINT
+# =====================================================================
+
+@router.get(
+    "/personalized/{customer_id}",
+    response_model=PersonalizedRecommendationResponse,
+    summary="Get Personalized Neural Recommendations",
+    description="Retrieve context-aware personalized recommendations with fallback support for cold-start customers."
+)
+def get_personalized_recommendations(
+    customer_id: str = Path(..., min_length=3, max_length=50, description="Customer ID (e.g., CUST_10)"),
+    limit: int = Query(5, ge=1, le=100, description="Number of recommendations to return (1-100)")
+):
+    try:
+        clean_id = customer_id.strip().upper()
+
+        # 1. Validate customer existence in the profile/customer store
+        all_registered_customers = set(CUSTOMER_PROFILES_STORE.keys()) | set(PERSONALIZED_PREFERENCE_SCORES.keys())
+        
+        # Check customer ID format & existence (allow CUST_ pattern, raise 404 if unknown format or nonexistent)
+        if not clean_id.startswith("CUST_") and clean_id not in all_registered_customers:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Customer ID '{customer_id}' was not recognized."
+            )
+
+        # 2. Check for personalization data or cold-start fallback (no interaction history)
+        if clean_id in PERSONALIZED_PREFERENCE_SCORES and PERSONALIZED_PREFERENCE_SCORES[clean_id]:
+            user_recs = PERSONALIZED_PREFERENCE_SCORES[clean_id][:limit]
+            is_fallback = False
+        else:
+            # Cold-start fallback: return top items from general candidate universe
+            fallback_items = [
+                {
+                    "article_id": item["article_id"],
+                    "personalized_score": item["score"],
+                    "product_type": item["product_type"],
+                    "product_group_name": item["product_group_name"],
+                    "affinity_reason": "Popularity Fallback (Cold Start)"
+                }
+                for item in CANDIDATE_UNIVERSE[:limit]
+            ]
+            user_recs = fallback_items
+            is_fallback = True
+
+        return PersonalizedRecommendationResponse(
+            status="success",
+            customer_id=clean_id,
+            is_fallback=is_fallback,
+            limit=limit,
+            total_returned=len(user_recs),
+            recommendations=[PersonalizedRecommendationItem(**item) for item in user_recs]
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while generating personalized recommendations: {str(e)}"
         )
