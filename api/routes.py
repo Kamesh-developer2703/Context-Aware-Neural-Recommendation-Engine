@@ -13,7 +13,9 @@ from api.schemas import (
     InteractionArticle,
     FeedbackItem,
     TrendingResponse,
-    TrendingArticle
+    TrendingArticle,
+    SimilarArticlesResponse,
+    SimilarArticleItem
 )
 
 router = APIRouter()
@@ -387,4 +389,69 @@ def get_customer_activity_tree(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error aggregating customer activity: {str(e)}"
+        )
+
+# =====================================================================
+# 📦 MOCK SIMILARITY DATA STORE
+# =====================================================================
+
+SIMILAR_ARTICLES_STORE = {
+    "0108775015": [
+        {"article_id": "0108775016", "similarity_score": 0.94, "product_type": "Trousers", "product_group_name": "Garments"},
+        {"article_id": "0108775017", "similarity_score": 0.89, "product_type": "Jacket", "product_group_name": "Garments"},
+        {"article_id": "0108775018", "similarity_score": 0.82, "product_type": "Sweater", "product_group_name": "Garments"},
+        {"article_id": "0108775019", "similarity_score": 0.77, "product_type": "Top", "product_group_name": "Garments"},
+    ],
+    "0108775020": [
+        {"article_id": "0108775021", "similarity_score": 0.91, "product_type": "Running Shorts", "product_group_name": "Sportswear"},
+        {"article_id": "0108775022", "similarity_score": 0.65, "product_type": "Cap", "product_group_name": "Accessories"},
+    ]
+}
+
+# =====================================================================
+# 🛠️ SIMILAR ARTICLES ENDPOINT
+# =====================================================================
+
+@router.get(
+    "/articles/{article_id}/similar",
+    response_model=SimilarArticlesResponse,
+    summary="Get Similar Articles",
+    description="Retrieve items mathematically similar to a given article based on neural embeddings."
+)
+def get_similar_articles(
+    article_id: str = Path(..., min_length=5, max_length=20, description="Unique Article ID (e.g., 0108775015)"),
+    limit: int = Query(5, ge=1, le=50, description="Number of similar items to return (1-50)")
+):
+    try:
+        clean_article_id = article_id.strip()
+
+        # 1. Validate if article exists in candidate inventory or similarity store
+        valid_article_ids = {item["article_id"] for item in CANDIDATE_UNIVERSE} | set(SIMILAR_ARTICLES_STORE.keys())
+        
+        if clean_article_id not in valid_article_ids:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Article ID '{article_id}' was not found in catalog."
+            )
+
+        # 2. Retrieve similar items or return empty array if none computed
+        similar_items = SIMILAR_ARTICLES_STORE.get(clean_article_id, [])
+
+        # 3. Sort by similarity score descending and apply limit
+        sorted_items = sorted(similar_items, key=lambda x: x["similarity_score"], reverse=True)[:limit]
+
+        return SimilarArticlesResponse(
+            status="success",
+            target_article_id=clean_article_id,
+            limit=limit,
+            total_found=len(sorted_items),
+            data=[SimilarArticleItem(**item) for item in sorted_items]
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving similar articles: {str(e)}"
         )

@@ -118,3 +118,16 @@ class TrendingResponse(BaseModel):
     limit: int
     total_trending: int
     data: List[TrendingArticle]
+
+class SimilarArticleItem(BaseModel):
+    article_id: str
+    similarity_score: float = Field(..., ge=0.0, le=1.0, description="Cosine similarity score")
+    product_type: str
+    product_group_name: Optional[str] = "Garments"
+
+class SimilarArticlesResponse(BaseModel):
+    status: str
+    target_article_id: str
+    limit: int
+    total_found: int
+    data: List[SimilarArticleItem]
