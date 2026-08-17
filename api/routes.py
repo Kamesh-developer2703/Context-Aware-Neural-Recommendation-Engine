@@ -55,14 +55,15 @@ def recommendations(limit: int = Query(10, ge=1, le=100)):
 
 
 @router.get("/recommendations/{customer_id}")
-def recommendation(customer_id: str):
+def recommendation(
+    customer_id: str,
+    limit: int = Query(10, ge=1, le=100)
+):
 
-    data = get_recommendations(customer_id)
-
-    save_history(
-    customer_id,
-    data
-)
+    data = get_recommendations(
+        customer_id,
+        limit
+    )
 
     if len(data) == 0:
 
@@ -77,6 +78,11 @@ def recommendation(customer_id: str):
             detail="Customer recommendation not found."
         )
 
+    save_history(
+        customer_id,
+        data
+    )
+
     log_request(
         "/recommendations",
         customer_id,
@@ -85,6 +91,7 @@ def recommendation(customer_id: str):
 
     return {
         "customer_id": customer_id,
+        "total": len(data),
         "recommendations": data
     }
 

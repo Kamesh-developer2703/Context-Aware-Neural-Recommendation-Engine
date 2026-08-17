@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class TwoTowerModel(nn.Module):
@@ -8,14 +9,14 @@ class TwoTowerModel(nn.Module):
 
         super().__init__()
 
-        # Customer Tower (5 features)
+        # Customer Tower
         self.customer_tower = nn.Sequential(
-            nn.Linear(5, 64),
+            nn.Linear(9, 64),
             nn.ReLU(),
             nn.Linear(64, 32)
         )
 
-        # Article Tower (9 features)
+        # Article Tower
         self.article_tower = nn.Sequential(
             nn.Linear(9, 64),
             nn.ReLU(),
@@ -27,6 +28,20 @@ class TwoTowerModel(nn.Module):
         customer_embedding = self.customer_tower(customer)
         article_embedding = self.article_tower(article)
 
+        # Normalize embeddings
+        customer_embedding = F.normalize(
+            customer_embedding,
+            p=2,
+            dim=1
+        )
+
+        article_embedding = F.normalize(
+            article_embedding,
+            p=2,
+            dim=1
+        )
+
+        # Cosine similarity
         score = torch.sum(
             customer_embedding * article_embedding,
             dim=1

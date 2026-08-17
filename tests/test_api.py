@@ -2,7 +2,7 @@ import requests
 
 BASE = "http://127.0.0.1:8000"
 
-CUSTOMER_ID = "00007d2de826758b65a93dd24ce629ed66842531df6699338c5570910a014cc2"
+CUSTOMER_ID = "00000dbacae5abe5e23885899a1fa44253a17956c6d1c3d25f88aa139fdfc657"
 
 try:
     print("Testing Home")

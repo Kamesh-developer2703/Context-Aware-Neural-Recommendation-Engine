@@ -1,5 +1,6 @@
 import pandas as pd
 import torch
+
 from torch.utils.data import Dataset
 import random
 
@@ -10,23 +11,37 @@ class RecommendationDataset(Dataset):
 
         print("Loading encoded datasets...")
 
-        customers = pd.read_csv("outputs/encoded/customer_encoded.csv")
-        articles = pd.read_csv("outputs/encoded/article_encoded.csv")
-        transactions = pd.read_csv("outputs/encoded/transaction_encoded.csv")
+        customers = pd.read_csv(
+            "data/processed/customer_features_encoded.csv"
+        )
+
+        articles = pd.read_csv(
+            "outputs/encoded/article_encoded.csv"
+        )
+
+        transactions = pd.read_csv(
+            "outputs/encoded/transaction_encoded.csv"
+        )
 
         print("Preparing customer features...")
+
         customers = customers[
             [
                 "customer_id",
-                "age",
-                "club_member_status",
-                "fashion_news_frequency",
                 "FN",
-                "Active"
+                "Active",
+                "age",
+                "is_active_member",
+                "receives_fashion_news",
+                "is_active_customer",
+                "club_member_status_encoded",
+                "fashion_news_frequency_encoded",
+                "age_group_encoded"
             ]
-        ]
+        ].copy()
 
         print("Preparing article features...")
+
         articles = articles[
             [
                 "article_id",
@@ -40,11 +55,68 @@ class RecommendationDataset(Dataset):
                 "product_name_length",
                 "description_length"
             ]
+        ].copy()
+
+        # ------------------------------------------------
+        # Customer feature scaling
+        # ------------------------------------------------
+
+        customer_features = [
+            "FN",
+            "Active",
+            "age",
+            "is_active_member",
+            "receives_fashion_news",
+            "is_active_customer",
+            "club_member_status_encoded",
+            "fashion_news_frequency_encoded",
+            "age_group_encoded"
         ]
+
+        # Normalize age
+        customers["age"] = (
+            customers["age"] / 100.0
+        )
+
+        # ------------------------------------------------
+        # Article feature scaling
+        # ------------------------------------------------
+
+        article_features = [
+            "product_type_no",
+            "graphical_appearance_no",
+            "colour_group_code",
+            "department_no",
+            "index_group_no",
+            "section_no",
+            "garment_group_no",
+            "product_name_length",
+            "description_length"
+        ]
+
+        # Min-max normalization
+        for column in article_features:
+
+            min_value = articles[column].min()
+            max_value = articles[column].max()
+
+            if max_value != min_value:
+
+                articles[column] = (
+                    articles[column] - min_value
+                ) / (
+                    max_value - min_value
+                )
+
+            else:
+
+                articles[column] = 0.0
 
         print("Generating negative samples...")
 
-        article_ids = articles["article_id"].tolist()
+        article_ids = articles[
+            "article_id"
+        ].tolist()
 
         positive_pairs = set(
             zip(
@@ -55,15 +127,21 @@ class RecommendationDataset(Dataset):
 
         negative_samples = []
 
-        # One negative sample for each positive interaction
+        # Create one negative for each positive
         for _, row in transactions.iterrows():
 
             customer = row["customer_id"]
 
             while True:
-                article = random.choice(article_ids)
 
-                if (customer, article) not in positive_pairs:
+                article = random.choice(
+                    article_ids
+                )
+
+                if (
+                    customer,
+                    article
+                ) not in positive_pairs:
 
                     negative_samples.append({
                         "customer_id": customer,
@@ -73,14 +151,23 @@ class RecommendationDataset(Dataset):
 
                     break
 
-        negative_df = pd.DataFrame(negative_samples)
+        negative_df = pd.DataFrame(
+            negative_samples
+        )
 
         positive_df = transactions[
-            ["customer_id", "article_id", "label"]
+            [
+                "customer_id",
+                "article_id",
+                "label"
+            ]
         ]
 
         data = pd.concat(
-            [positive_df, negative_df],
+            [
+                positive_df,
+                negative_df
+            ],
             ignore_index=True
         )
 
@@ -100,43 +187,69 @@ class RecommendationDataset(Dataset):
             how="left"
         )
 
-        data.fillna(0, inplace=True)
+        data.fillna(
+            0,
+            inplace=True
+        )
 
-        self.data = data.sample(frac=1, random_state=42).reset_index(drop=True)
+        self.data = data.sample(
+            frac=1,
+            random_state=42
+        ).reset_index(
+            drop=True
+        )
 
         print("\nDataset Ready")
-        print(self.data["label"].value_counts())
+
+        print(
+            self.data["label"].value_counts()
+        )
 
     def __len__(self):
+
         return len(self.data)
 
     def __getitem__(self, idx):
 
         row = self.data.iloc[idx]
 
-        customer = torch.tensor([
-            row["age"],
-            row["club_member_status"],
-            row["fashion_news_frequency"],
-            row["FN"],
-            row["Active"]
-        ], dtype=torch.float32)
+        customer = torch.tensor(
+            [
+                row["FN"],
+                row["Active"],
+                row["age"],
+                row["is_active_member"],
+                row["receives_fashion_news"],
+                row["is_active_customer"],
+                row["club_member_status_encoded"],
+                row["fashion_news_frequency_encoded"],
+                row["age_group_encoded"]
+            ],
+            dtype=torch.float32
+        )
 
-        article = torch.tensor([
-            row["product_type_no"],
-            row["graphical_appearance_no"],
-            row["colour_group_code"],
-            row["department_no"],
-            row["index_group_no"],
-            row["section_no"],
-            row["garment_group_no"],
-            row["product_name_length"],
-            row["description_length"]
-        ], dtype=torch.float32)
+        article = torch.tensor(
+            [
+                row["product_type_no"],
+                row["graphical_appearance_no"],
+                row["colour_group_code"],
+                row["department_no"],
+                row["index_group_no"],
+                row["section_no"],
+                row["garment_group_no"],
+                row["product_name_length"],
+                row["description_length"]
+            ],
+            dtype=torch.float32
+        )
 
         label = torch.tensor(
             row["label"],
             dtype=torch.float32
         )
 
-        return customer, article, label
+        return (
+            customer,
+            article,
+            label
+        )
