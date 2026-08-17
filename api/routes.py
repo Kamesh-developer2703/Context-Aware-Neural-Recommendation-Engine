@@ -11,7 +11,13 @@ from api.schemas import (
     AggregatedCustomerActivityResponse,
     CustomerActivityTreeData,
     InteractionArticle,
-    FeedbackItem
+    FeedbackItem,
+    TrendingResponse,
+    TrendingArticle,
+    SimilarArticlesResponse,
+    SimilarArticleItem,
+    PersonalizedRecommendationResponse,
+    PersonalizedRecommendationItem
 )
 
 router = APIRouter()
@@ -112,11 +118,65 @@ CUSTOMER_FEEDBACK_STORE = [
     }
 ]
 
+TRENDING_UNIVERSE = [
+    {"article_id": "0108775015", "product_type": "Dress", "product_group_name": "Garments", "popularity_score": 98.5, "total_interactions": 1420},
+    {"article_id": "0108775016", "product_type": "Trousers", "product_group_name": "Garments", "popularity_score": 94.2, "total_interactions": 1180},
+    {"article_id": "0108775020", "product_type": "Sports Shoes", "product_group_name": "Footwear", "popularity_score": 89.1, "total_interactions": 950},
+    {"article_id": "0108775017", "product_type": "Jacket", "product_group_name": "Garments", "popularity_score": 85.4, "total_interactions": 820},
+    {"article_id": "0108775018", "product_type": "Sweater", "product_group_name": "Garments", "popularity_score": 81.2, "total_interactions": 710},
+    {"article_id": "0108775019", "product_type": "Top", "product_group_name": "Garments", "popularity_score": 76.5, "total_interactions": 630},
+    {"article_id": "0108775021", "product_type": "Running Shorts", "product_group_name": "Sportswear", "popularity_score": 69.0, "total_interactions": 540},
+    {"article_id": "0108775022", "product_type": "Cap", "product_group_name": "Accessories", "popularity_score": 55.0, "total_interactions": 320},
+]
+
+
 # =====================================================================
 # 🛠️ API ENDPOINTS
 # =====================================================================
 
-# --- 1. SEARCH & FILTER RECOMMENDATIONS ENDPOINT ---
+# --- 1. TRENDING API ENDPOINT ---
+@router.get(
+    "/trending",
+    response_model=TrendingResponse,
+    summary="Get Trending Articles",
+    description="Retrieve top trending articles sorted by popularity and interaction volume."
+)
+def get_trending_articles(
+    limit: int = Query(10, ge=1, le=100, description="Number of trending items to return (1-100)")
+):
+    try:
+        if not TRENDING_UNIVERSE:
+            return TrendingResponse(
+                status="success",
+                limit=limit,
+                total_trending=0,
+                data=[]
+            )
+
+        sorted_trending = sorted(
+            TRENDING_UNIVERSE, 
+            key=lambda x: x["popularity_score"], 
+            reverse=True
+        )
+
+        selected_items = sorted_trending[:limit]
+
+        return TrendingResponse(
+            status="success",
+            limit=limit,
+            total_trending=len(selected_items),
+            data=[TrendingArticle(**item) for item in selected_items]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while fetching trending articles: {str(e)}"
+        )
+
+
+# --- 2. SEARCH & FILTER RECOMMENDATIONS ENDPOINT ---
 @router.get(
     "/recommendations/search",
     response_model=RecommendationResponse,
@@ -158,7 +218,7 @@ def search_and_filter_recommendations(
         )
 
 
-# --- 2. PAGINATED HISTORY ENDPOINT ---
+# --- 3. PAGINATED HISTORY ENDPOINT ---
 @router.get(
     "/recommendations/history",
     response_model=PaginatedHistoryResponse,
@@ -216,7 +276,7 @@ def get_recommendation_history(
         )
 
 
-# --- 3. CUSTOMER SPECIFIC RECOMMENDATIONS ENDPOINT ---
+# --- 4. CUSTOMER SPECIFIC RECOMMENDATIONS ENDPOINT ---
 @router.get(
     "/recommendations/{customer_id}",
     response_model=RecommendationResponse,
@@ -242,7 +302,7 @@ def get_customer_recommendations(
         )
 
 
-# --- 4. CUSTOMER PROFILE ENDPOINT ---
+# --- 5. CUSTOMER PROFILE ENDPOINT ---
 @router.get(
     "/customers/{customer_id}",
     response_model=CustomerProfileResponse,
@@ -277,7 +337,7 @@ def get_customer_profile(
         )
 
 
-# --- 5. AGGREGATED CUSTOMER ACTIVITY ENDPOINT ---
+# --- 6. AGGREGATED CUSTOMER ACTIVITY ENDPOINT ---
 @router.get(
     "/customers/{customer_id}/activity",
     response_model=AggregatedCustomerActivityResponse,
@@ -331,4 +391,148 @@ def get_customer_activity_tree(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error aggregating customer activity: {str(e)}"
+        )
+
+# =====================================================================
+# 📦 MOCK SIMILARITY DATA STORE
+# =====================================================================
+
+SIMILAR_ARTICLES_STORE = {
+    "0108775015": [
+        {"article_id": "0108775016", "similarity_score": 0.94, "product_type": "Trousers", "product_group_name": "Garments"},
+        {"article_id": "0108775017", "similarity_score": 0.89, "product_type": "Jacket", "product_group_name": "Garments"},
+        {"article_id": "0108775018", "similarity_score": 0.82, "product_type": "Sweater", "product_group_name": "Garments"},
+        {"article_id": "0108775019", "similarity_score": 0.77, "product_type": "Top", "product_group_name": "Garments"},
+    ],
+    "0108775020": [
+        {"article_id": "0108775021", "similarity_score": 0.91, "product_type": "Running Shorts", "product_group_name": "Sportswear"},
+        {"article_id": "0108775022", "similarity_score": 0.65, "product_type": "Cap", "product_group_name": "Accessories"},
+    ]
+}
+
+# =====================================================================
+# 🛠️ SIMILAR ARTICLES ENDPOINT
+# =====================================================================
+
+@router.get(
+    "/articles/{article_id}/similar",
+    response_model=SimilarArticlesResponse,
+    summary="Get Similar Articles",
+    description="Retrieve items mathematically similar to a given article based on neural embeddings."
+)
+def get_similar_articles(
+    article_id: str = Path(..., min_length=5, max_length=20, description="Unique Article ID (e.g., 0108775015)"),
+    limit: int = Query(5, ge=1, le=50, description="Number of similar items to return (1-50)")
+):
+    try:
+        clean_article_id = article_id.strip()
+
+        # 1. Validate if article exists in candidate inventory or similarity store
+        valid_article_ids = {item["article_id"] for item in CANDIDATE_UNIVERSE} | set(SIMILAR_ARTICLES_STORE.keys())
+        
+        if clean_article_id not in valid_article_ids:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Article ID '{article_id}' was not found in catalog."
+            )
+
+        # 2. Retrieve similar items or return empty array if none computed
+        similar_items = SIMILAR_ARTICLES_STORE.get(clean_article_id, [])
+
+        # 3. Sort by similarity score descending and apply limit
+        sorted_items = sorted(similar_items, key=lambda x: x["similarity_score"], reverse=True)[:limit]
+
+        return SimilarArticlesResponse(
+            status="success",
+            target_article_id=clean_article_id,
+            limit=limit,
+            total_found=len(sorted_items),
+            data=[SimilarArticleItem(**item) for item in sorted_items]
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving similar articles: {str(e)}"
+        )
+# =====================================================================
+# 📦 MOCK PERSONALIZED ENGINE DATA STORE
+# =====================================================================
+
+PERSONALIZED_PREFERENCE_SCORES = {
+    "CUST_10": [
+        {"article_id": "0108775015", "personalized_score": 0.992, "product_type": "Dress", "product_group_name": "Garments", "affinity_reason": "Favorite Category & Color Match"},
+        {"article_id": "0108775017", "personalized_score": 0.945, "product_type": "Jacket", "product_group_name": "Garments", "affinity_reason": "Previous High Rating"},
+        {"article_id": "0108775016", "personalized_score": 0.910, "product_type": "Trousers", "product_group_name": "Garments", "affinity_reason": "Recently Viewed Sequence"},
+        {"article_id": "0108775018", "personalized_score": 0.865, "product_type": "Sweater", "product_group_name": "Garments", "affinity_reason": "Seasonal Neural Match"},
+    ],
+    "CUST_20": [
+        {"article_id": "0108775020", "personalized_score": 0.965, "product_type": "Sports Shoes", "product_group_name": "Footwear", "affinity_reason": "Category Interaction Affinity"},
+        {"article_id": "0108775021", "personalized_score": 0.880, "product_type": "Running Shorts", "product_group_name": "Sportswear", "affinity_reason": "Cross-category Neural Match"},
+    ]
+}
+
+# =====================================================================
+# 🛠️ PERSONALIZED RECOMMENDATIONS ENDPOINT
+# =====================================================================
+
+@router.get(
+    "/personalized/{customer_id}",
+    response_model=PersonalizedRecommendationResponse,
+    summary="Get Personalized Neural Recommendations",
+    description="Retrieve context-aware personalized recommendations with fallback support for cold-start customers."
+)
+def get_personalized_recommendations(
+    customer_id: str = Path(..., min_length=3, max_length=50, description="Customer ID (e.g., CUST_10)"),
+    limit: int = Query(5, ge=1, le=100, description="Number of recommendations to return (1-100)")
+):
+    try:
+        clean_id = customer_id.strip().upper()
+
+        # 1. Validate customer existence in the profile/customer store
+        all_registered_customers = set(CUSTOMER_PROFILES_STORE.keys()) | set(PERSONALIZED_PREFERENCE_SCORES.keys())
+        
+        # Check customer ID format & existence (allow CUST_ pattern, raise 404 if unknown format or nonexistent)
+        if not clean_id.startswith("CUST_") and clean_id not in all_registered_customers:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Customer ID '{customer_id}' was not recognized."
+            )
+
+        # 2. Check for personalization data or cold-start fallback (no interaction history)
+        if clean_id in PERSONALIZED_PREFERENCE_SCORES and PERSONALIZED_PREFERENCE_SCORES[clean_id]:
+            user_recs = PERSONALIZED_PREFERENCE_SCORES[clean_id][:limit]
+            is_fallback = False
+        else:
+            # Cold-start fallback: return top items from general candidate universe
+            fallback_items = [
+                {
+                    "article_id": item["article_id"],
+                    "personalized_score": item["score"],
+                    "product_type": item["product_type"],
+                    "product_group_name": item["product_group_name"],
+                    "affinity_reason": "Popularity Fallback (Cold Start)"
+                }
+                for item in CANDIDATE_UNIVERSE[:limit]
+            ]
+            user_recs = fallback_items
+            is_fallback = True
+
+        return PersonalizedRecommendationResponse(
+            status="success",
+            customer_id=clean_id,
+            is_fallback=is_fallback,
+            limit=limit,
+            total_returned=len(user_recs),
+            recommendations=[PersonalizedRecommendationItem(**item) for item in user_recs]
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while generating personalized recommendations: {str(e)}"
         )
