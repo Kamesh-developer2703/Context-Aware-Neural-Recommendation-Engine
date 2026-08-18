@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import torch
 import torch.nn.functional as F
+import joblib
 
 from ann.model import TwoTowerModel
 
@@ -29,15 +30,20 @@ MODEL_FILE = os.path.join(
     "two_tower_model_v2.pth"
 )
 
+ARTICLE_SCALER_FILE = os.path.join(
+    BASE_DIR,
+    "models",
+    "scalers",
+    "article_scaler.pkl"
+)
+
 
 # ============================================================
 # Device
 # ============================================================
 
 DEVICE = torch.device(
-    "cuda"
-    if torch.cuda.is_available()
-    else "cpu"
+    "cuda" if torch.cuda.is_available() else "cpu"
 )
 
 print(
@@ -77,7 +83,7 @@ ARTICLE_FEATURES = [
 
 
 # ============================================================
-# Load model + article embeddings
+# Load article embeddings
 # ============================================================
 
 def load_article_embeddings():
@@ -85,13 +91,20 @@ def load_article_embeddings():
     global _article_ids
     global _article_embeddings
 
+    # --------------------------------------------------------
     # Already loaded
+    # --------------------------------------------------------
+
     if _article_embeddings is not None:
         return
 
     print(
         "Loading article data..."
     )
+
+    # --------------------------------------------------------
+    # Check article file
+    # --------------------------------------------------------
 
     if not os.path.exists(ARTICLE_FILE):
 
@@ -138,15 +151,50 @@ def load_article_embeddings():
         .values
     )
 
-    # --------------------------------------------------------
-    # Article features
-    # --------------------------------------------------------
+    # ========================================================
+    # Load article scaler
+    # ========================================================
 
-    article_features = (
+    print(
+        "Loading article scaler..."
+    )
+
+    if not os.path.exists(ARTICLE_SCALER_FILE):
+
+        raise FileNotFoundError(
+            f"Article scaler not found: "
+            f"{ARTICLE_SCALER_FILE}"
+        )
+
+    article_scaler = joblib.load(
+        ARTICLE_SCALER_FILE
+    )
+
+    print(
+        "Article scaler loaded."
+    )
+
+    # ========================================================
+    # Prepare article features
+    # ========================================================
+
+    article_df = (
         articles[ARTICLE_FEATURES]
         .fillna(0)
         .astype("float32")
-        .values
+    )
+
+    # --------------------------------------------------------
+    # IMPORTANT:
+    # Use the SAME scaler used during training
+    # --------------------------------------------------------
+
+    article_features = article_scaler.transform(
+        article_df
+    )
+
+    article_features = article_features.astype(
+        "float32"
     )
 
     article_tensor = torch.tensor(
@@ -156,20 +204,16 @@ def load_article_embeddings():
     )
 
     print(
-        "Article feature tensor:",
+        "Scaled article feature tensor:",
         article_tensor.shape
     )
 
     # ========================================================
-    # Load CURRENT Two-Tower model
+    # Load Two-Tower model
     # ========================================================
 
     print(
         "Loading current Two-Tower model..."
-    )
-
-    model = TwoTowerModel().to(
-        DEVICE
     )
 
     if not os.path.exists(MODEL_FILE):
@@ -177,6 +221,10 @@ def load_article_embeddings():
         raise FileNotFoundError(
             f"Model file not found: {MODEL_FILE}"
         )
+
+    model = TwoTowerModel().to(
+        DEVICE
+    )
 
     state_dict = torch.load(
         MODEL_FILE,
@@ -271,13 +319,16 @@ def get_similar_articles(
         target_embedding
     )
 
-    # Don't recommend the same article
+    # --------------------------------------------------------
+    # Don't recommend itself
+    # --------------------------------------------------------
+
     similarity_scores[
         target_index
     ] = -1
 
     # --------------------------------------------------------
-    # Number of results
+    # Top-K
     # --------------------------------------------------------
 
     top_k = min(
@@ -288,10 +339,6 @@ def get_similar_articles(
     if top_k <= 0:
 
         return []
-
-    # --------------------------------------------------------
-    # Top-K
-    # --------------------------------------------------------
 
     scores, indices = torch.topk(
         similarity_scores,
@@ -305,8 +352,8 @@ def get_similar_articles(
     results = []
 
     for score, index in zip(
-        scores.tolist(),
-        indices.tolist()
+        scores.cpu().tolist(),
+        indices.cpu().tolist()
     ):
 
         results.append({

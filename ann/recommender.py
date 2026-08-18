@@ -1,11 +1,17 @@
 import os
+import joblib
 import pandas as pd
 import torch
+import torch.nn.functional as F
 
 from ann.model import TwoTowerModel
 
 
 class RecommendationEngine:
+
+    # =========================================================
+    # Feature definitions
+    # =========================================================
 
     CUSTOMER_FEATURES = [
         "FN",
@@ -31,78 +37,195 @@ class RecommendationEngine:
         "description_length"
     ]
 
+    # =========================================================
+    # Initialize Recommendation Engine
+    # =========================================================
+
     def __init__(self):
 
+        # -----------------------------------------------------
+        # Device
+        # -----------------------------------------------------
+
         self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu"
+            "cuda" if torch.cuda.is_available()
+            else "cpu"
         )
 
-        print("Recommendation Engine Device:", self.device)
+        print(
+            "Recommendation Engine Device:",
+            self.device
+        )
 
         if torch.cuda.is_available():
+
             print(
                 "GPU:",
                 torch.cuda.get_device_name(0)
             )
 
-        # -----------------------------
+        # -----------------------------------------------------
+        # File paths
+        # -----------------------------------------------------
+
+        self.model_path = (
+            "models/two_tower_model_v2.pth"
+        )
+
+        self.customer_scaler_path = (
+            "models/scalers/customer_scaler.pkl"
+        )
+
+        self.article_scaler_path = (
+            "models/scalers/article_scaler.pkl"
+        )
+
+        self.customer_file = (
+            "data/processed/"
+            "customer_features_encoded.csv"
+        )
+
+        self.article_file = (
+            "outputs/encoded/"
+            "article_encoded.csv"
+        )
+
+        # -----------------------------------------------------
+        # Validate required files
+        # -----------------------------------------------------
+
+        self._check_required_files()
+
+        # -----------------------------------------------------
         # Load model
-        # -----------------------------
+        # -----------------------------------------------------
 
-        self.model = TwoTowerModel().to(self.device)
+        self._load_model()
 
-        model_path = "models/two_tower_model_v2.pth"
+        # -----------------------------------------------------
+        # Load scalers
+        # -----------------------------------------------------
 
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(
-                f"Model not found: {model_path}"
-            )
+        self._load_scalers()
+
+        # -----------------------------------------------------
+        # Load data
+        # -----------------------------------------------------
+
+        self._load_data()
+
+        # -----------------------------------------------------
+        # Generate article embeddings
+        # -----------------------------------------------------
+
+        self._generate_article_embeddings()
+
+    # =========================================================
+    # Check required files
+    # =========================================================
+
+    def _check_required_files(self):
+
+        required_files = [
+            self.model_path,
+            self.customer_scaler_path,
+            self.article_scaler_path,
+            self.customer_file,
+            self.article_file
+        ]
+
+        for file_path in required_files:
+
+            if not os.path.exists(file_path):
+
+                raise FileNotFoundError(
+                    f"Required file not found: {file_path}"
+                )
+
+    # =========================================================
+    # Load Two-Tower model
+    # =========================================================
+
+    def _load_model(self):
+
+        print("\nLoading Two-Tower model...")
+
+        self.model = TwoTowerModel().to(
+            self.device
+        )
 
         self.model.load_state_dict(
             torch.load(
-                model_path,
+                self.model_path,
                 map_location=self.device
             )
         )
 
         self.model.eval()
 
-        print("Two Tower model loaded.")
+        print(
+            "Two Tower model loaded."
+        )
 
-        # -----------------------------
-        # Load customers
-        # -----------------------------
+    # =========================================================
+    # Load feature scalers
+    # =========================================================
+
+    def _load_scalers(self):
+
+        print(
+            "\nLoading feature scalers..."
+        )
+
+        self.customer_scaler = joblib.load(
+            self.customer_scaler_path
+        )
+
+        self.article_scaler = joblib.load(
+            self.article_scaler_path
+        )
+
+        print(
+            "Customer scaler loaded."
+        )
+
+        print(
+            "Article scaler loaded."
+        )
+
+    # =========================================================
+    # Load customer and article data
+    # =========================================================
+
+    def _load_data(self):
+
+        print(
+            "\nLoading customer data..."
+        )
 
         self.customers = pd.read_csv(
-            "data/processed/customer_features_encoded.csv"
+            self.customer_file
         )
 
-        self.customers["customer_id"] = (
-            self.customers["customer_id"].astype(str)
+        self.customers[
+            "customer_id"
+        ] = (
+            self.customers[
+                "customer_id"
+            ].astype(str)
         )
 
-        # -----------------------------
-        # Load articles
-        # -----------------------------
+        print(
+            "Loaded customers:",
+            len(self.customers)
+        )
+
+        print(
+            "\nLoading article data..."
+        )
 
         self.articles = pd.read_csv(
-            "outputs/encoded/article_encoded.csv"
-        )
-
-        # -----------------------------
-        # Prepare article tensors
-        # -----------------------------
-
-        article_values = (
-            self.articles[self.ARTICLE_FEATURES]
-            .fillna(0)
-            .values
-        )
-
-        self.article_tensor = torch.tensor(
-            article_values,
-            dtype=torch.float32,
-            device=self.device
+            self.article_file
         )
 
         print(
@@ -110,11 +233,59 @@ class RecommendationEngine:
             len(self.articles)
         )
 
-        # -----------------------------
-        # Pre-compute article embeddings
-        # -----------------------------
+    # =========================================================
+    # Generate article embeddings
+    # =========================================================
 
-        print("Generating article embeddings...")
+    def _generate_article_embeddings(self):
+
+        print(
+            "\nPreparing article features..."
+        )
+
+        # -----------------------------------------------------
+        # Select article features
+        # -----------------------------------------------------
+
+        article_features = (
+            self.articles[
+                self.ARTICLE_FEATURES
+            ]
+            .fillna(0)
+        )
+
+        # -----------------------------------------------------
+        # Apply SAME scaler used during training
+        # -----------------------------------------------------
+
+        article_features_scaled = (
+            self.article_scaler.transform(
+                article_features
+            )
+        )
+
+        # -----------------------------------------------------
+        # Convert to tensor
+        # -----------------------------------------------------
+
+        self.article_tensor = torch.tensor(
+            article_features_scaled,
+            dtype=torch.float32,
+            device=self.device
+        )
+
+        print(
+            "Article feature tensor:",
+            self.article_tensor.shape
+        )
+
+        # -----------------------------------------------------
+        # Generate embeddings
+        # -----------------------------------------------------
+
+        print(
+            "\nGenerating article embeddings..."
+        )
 
         with torch.no_grad():
 
@@ -124,31 +295,49 @@ class RecommendationEngine:
                 )
             )
 
+            # -------------------------------------------------
+            # Normalize embeddings
+            # -------------------------------------------------
+
+            self.article_embeddings = F.normalize(
+                self.article_embeddings,
+                p=2,
+                dim=1
+            )
+
         print(
             "Article embeddings ready:",
             self.article_embeddings.shape
         )
 
-    # -----------------------------------------
+    # =========================================================
     # Find customer
-    # -----------------------------------------
+    # =========================================================
 
-    def get_customer(self, customer_id):
+    def get_customer(
+        self,
+        customer_id
+    ):
 
-        customer_id = str(customer_id)
+        customer_id = str(
+            customer_id
+        )
 
         customer = self.customers[
-            self.customers["customer_id"] == customer_id
+            self.customers[
+                "customer_id"
+            ] == customer_id
         ]
 
         if customer.empty:
+
             return None
 
         return customer.iloc[0]
 
-    # -----------------------------------------
+    # =========================================================
     # Generate recommendations
-    # -----------------------------------------
+    # =========================================================
 
     def recommend(
         self,
@@ -156,23 +345,71 @@ class RecommendationEngine:
         limit=10
     ):
 
-        customer = self.get_customer(customer_id)
+        # -----------------------------------------------------
+        # Find customer
+        # -----------------------------------------------------
+
+        customer = self.get_customer(
+            customer_id
+        )
 
         if customer is None:
+
             return None
 
-        customer_values = [
-            customer[column]
-            for column in self.CUSTOMER_FEATURES
+        # -----------------------------------------------------
+        # Validate limit
+        # -----------------------------------------------------
+
+        try:
+
+            limit = int(limit)
+
+        except (TypeError, ValueError):
+
+            limit = 10
+
+        if limit < 1:
+
+            limit = 10
+
+        limit = min(
+            limit,
+            len(self.articles)
+        )
+
+        # -----------------------------------------------------
+        # Get customer features
+        # -----------------------------------------------------
+
+        customer_features = (
+        customer[
+            self.CUSTOMER_FEATURES
         ]
+        .fillna(0)
+        .infer_objects(copy=False)
+        )
+
+        customer_features_scaled = (
+            self.customer_scaler.transform(
+                customer_features.to_frame().T
+            )
+        )
+
+        # -----------------------------------------------------
+        # Convert customer to tensor
+        # -----------------------------------------------------
 
         customer_tensor = torch.tensor(
-            [customer_values],
+            customer_features_scaled,
             dtype=torch.float32,
             device=self.device
         )
 
-        # Customer embedding
+        # -----------------------------------------------------
+        # Generate customer embedding
+        # -----------------------------------------------------
+
         with torch.no_grad():
 
             customer_embedding = (
@@ -181,21 +418,39 @@ class RecommendationEngine:
                 )
             )
 
-            # Compare customer with ALL articles
+            # -------------------------------------------------
+            # Normalize customer embedding
+            # -------------------------------------------------
+
+            customer_embedding = F.normalize(
+                customer_embedding,
+                p=2,
+                dim=1
+            )
+
+            # -------------------------------------------------
+            # Cosine similarity
+            # -------------------------------------------------
+
             scores = torch.matmul(
                 self.article_embeddings,
                 customer_embedding.T
             ).squeeze(1)
 
-            limit = min(
-                int(limit),
-                len(scores)
+            # -------------------------------------------------
+            # Top-K recommendations
+            # -------------------------------------------------
+
+            top_scores, top_indices = (
+                torch.topk(
+                    scores,
+                    k=limit
+                )
             )
 
-            top_scores, top_indices = torch.topk(
-                scores,
-                k=limit
-            )
+        # -----------------------------------------------------
+        # Convert results
+        # -----------------------------------------------------
 
         results = []
 
@@ -205,21 +460,28 @@ class RecommendationEngine:
         ):
 
             article_id = int(
-                self.articles.iloc[index]["article_id"]
+                self.articles.iloc[
+                    index
+                ]["article_id"]
             )
 
-            results.append({
-                "customer_id": customer_id,
-                "article_id": article_id,
-                "score": float(score)
-            })
+            results.append(
+                {
+                    "customer_id": customer_id,
+                    "article_id": article_id,
+                    "score": round(
+                        float(score),
+                        6
+                    )
+                }
+            )
 
         return results
 
 
-# -----------------------------------------
-# Singleton engine
-# -----------------------------------------
+# =============================================================
+# Singleton Recommendation Engine
+# =============================================================
 
 _engine = None
 
@@ -229,10 +491,15 @@ def get_engine():
     global _engine
 
     if _engine is None:
+
         _engine = RecommendationEngine()
 
     return _engine
 
+
+# =============================================================
+# Public function
+# =============================================================
 
 def get_dynamic_recommendations(
     customer_id,
