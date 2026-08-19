@@ -249,3 +249,4 @@ Average Response Time:
 Status:
 PASS
 Test the data time everything is working properly and calculate the average time of responidng.
+Update the code for article id and added them into favorite.
